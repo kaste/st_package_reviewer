@@ -83,7 +83,7 @@ runs:
       with:
         name: review-md
         path: _handoff
-        run-id: ${{ inputs.run_id }}
+        run-id: ${{ github.event.workflow_run.id }}
 
     - name: Post PR comment
       if: inputs.phase == 'report'
@@ -105,7 +105,7 @@ runs:
             throw new Error("Missing/invalid PR number in review_pr_number.txt");
           }
 
-          const marker = `<!-- st_package_reviewer run_id=${{ inputs.run_id }} -->`;
+          const marker = `<!-- st_package_reviewer run_id=${{ github.event.workflow_run.id }} -->`;
           const commentBody = `${marker}\n\n${body}`;
 
           const { owner, repo } = context.repo;
