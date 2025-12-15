@@ -54,7 +54,7 @@ runs:
         "${{ github.action_path }}/action.sh" --pr "${{ inputs.pr }}" --file "${{ inputs.file }}" --thecrawl "${{ inputs.thecrawl }}"
 
     - name: Write PR metadata
-      if: inputs.phase == 'review'
+      if: always() && inputs.phase == 'review'
       shell: bash
       run: |
         set -euo pipefail
@@ -67,7 +67,7 @@ runs:
         printf '%s\n' "$pr_number" > review_pr_number.txt
 
     - name: Upload review artifact
-      if: inputs.phase == 'review'
+      if: always() && inputs.phase == 'review'
       uses: actions/upload-artifact@v4
       with:
         name: review-md
@@ -75,7 +75,7 @@ runs:
           review.md
           review_pr_number.txt
         retention-days: 1
-        if-no-files-found: error
+        if-no-files-found: warn
 
     - name: Download review artifact
       if: inputs.phase == 'report'
