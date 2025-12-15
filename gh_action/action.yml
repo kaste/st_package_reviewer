@@ -19,6 +19,10 @@ inputs:
   run_id:
     description: Workflow run ID to download artifacts from (required for 'report', e.g. github.event.workflow_run.id)
     required: false
+  token:
+      description: 'GitHub Token (set automatically)'
+      required: false
+      default: ${{ github.token }}
 runs:
   using: composite
   steps:
@@ -83,6 +87,7 @@ runs:
       with:
         name: review-md
         path: _handoff
+        github-token: ${{ inputs.token }}
         run-id: ${{ github.event.workflow_run.id }}
 
     - name: Post PR comment
