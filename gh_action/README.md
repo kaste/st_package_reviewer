@@ -24,9 +24,6 @@ on:
     paths:
       - 'repository.json'
 
-env:
-  GITHUB_TOKEN: ${{ github.token }}
-
 jobs:
   diff-and-review:
     runs-on: ubuntu-latest

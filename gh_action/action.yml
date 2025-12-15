@@ -49,6 +49,8 @@ runs:
 
     - name: Run Package Reviewer
       if: inputs.phase == 'review'
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
       shell: bash
       run: |
         set -euo pipefail
