@@ -4,9 +4,9 @@ This composite action diffs a Package Control channel registry between a PR’s 
 
 ## Inputs
 
-- `step` (optional): `review` (default) or `report`.
-- `pr` (required for `step: review`): Full PR URL, e.g. `https://github.com/wbond/package_control_channel/pull/9236`.
-- `run_id` (required for `step: report`): The workflow run ID to download the `review-md` artifact from (e.g. `${{ github.event.workflow_run.id }}`).
+- `phase` (optional): `review` (default) or `report`.
+- `pr` (required for `review`): Full PR URL, e.g. `https://github.com/wbond/package_control_channel/pull/9236`.
+- `run_id` (required for `report`): The workflow run ID to download the `review-md` artifact from (e.g. `${{ github.event.workflow_run.id }}`).
 - `file` (optional): Path to the channel or repository file inside the repo. Default: `repository.json`.
 - `thecrawl` (optional): Path to a local `thecrawl` repo, or a git URL to clone a fork/branch/commit. Default: `https://github.com/packagecontrol/thecrawl`
 
@@ -64,7 +64,7 @@ jobs:
       - name: Post PR comment from artifact
         uses: kaste/st_package_reviewer/gh_action@<PINNED_REF>
         with:
-          step: report
+          phase: report
           run_id: ${{ github.event.workflow_run.id }}
 ```
 

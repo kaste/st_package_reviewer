@@ -1,7 +1,7 @@
 name: Package Reviewer PR action
 description: Review a repository or channel PR
 inputs:
-  step:
+  phase:
     description: Action mode ('review' to generate the review, 'report' to post a PR comment)
     default: review
     required: false
@@ -29,31 +29,32 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        step="${{ inputs.step }}"
-        if [[ "$step" == "review" ]]; then
+        phase="${{ inputs.phase }}"
+
+        if [[ "$phase" == "review" ]]; then
           if [[ -z "${{ inputs.pr }}" ]]; then
-            echo "::error ::Missing required input 'pr' for step=review" >&2
+            echo "::error ::Missing required input 'pr' for phase=review" >&2
             exit 2
           fi
-        elif [[ "$step" == "report" ]]; then
+        elif [[ "$phase" == "report" ]]; then
           if [[ -z "${{ inputs.run_id }}" ]]; then
-            echo "::error ::Missing required input 'run_id' for step=report" >&2
+            echo "::error ::Missing required input 'run_id' for phase=report" >&2
             exit 2
           fi
         else
-          echo "::error ::Unknown step: $step (expected 'review' or 'report')" >&2
+          echo "::error ::Unknown phase: $phase (expected 'review' or 'report')" >&2
           exit 2
         fi
 
     - name: Run Package Reviewer
-      if: inputs.step == 'review'
+      if: inputs.phase == 'review'
       shell: bash
       run: |
         set -euo pipefail
         "${{ github.action_path }}/action.sh" --pr "${{ inputs.pr }}" --file "${{ inputs.file }}" --thecrawl "${{ inputs.thecrawl }}"
 
     - name: Write PR metadata
-      if: inputs.step == 'review'
+      if: inputs.phase == 'review'
       shell: bash
       run: |
         set -euo pipefail
@@ -66,7 +67,7 @@ runs:
         printf '%s\n' "$pr_number" > review_pr_number.txt
 
     - name: Upload review artifact
-      if: inputs.step == 'review'
+      if: inputs.phase == 'review'
       uses: actions/upload-artifact@v4
       with:
         name: review-md
@@ -77,7 +78,7 @@ runs:
         if-no-files-found: error
 
     - name: Download review artifact
-      if: inputs.step == 'report'
+      if: inputs.phase == 'report'
       uses: actions/download-artifact@v4
       with:
         name: review-md
@@ -85,7 +86,7 @@ runs:
         run-id: ${{ inputs.run_id }}
 
     - name: Post PR comment
-      if: inputs.step == 'report'
+      if: inputs.phase == 'report'
       uses: actions/github-script@v7
       env:
         REVIEW_MD_PATH: _handoff/review.md
