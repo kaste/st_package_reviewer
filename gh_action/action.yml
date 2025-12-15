@@ -1,6 +1,10 @@
 name: Package Reviewer PR action
 description: Review a repository or channel PR
 inputs:
+  step:
+    description: Action mode ('review' or 'report')
+    default: review
+    required: false
   pr:
     description: Pull Request URL (e.g. https://github.com/wbond/package_control_channel/pull/123)
     required: true
@@ -19,7 +23,17 @@ runs:
       uses: astral-sh/setup-uv@v3
 
     - name: Run Package Reviewer
+      if: inputs.step == 'review'
       shell: bash
       run: |
         set -euo pipefail
         "${{ github.action_path }}/action.sh" --pr "${{ inputs.pr }}" --file "${{ inputs.file }}" --thecrawl "${{ inputs.thecrawl }}"
+
+    - name: Upload review artifact
+      if: inputs.step == 'review'
+      uses: actions/upload-artifact@v4
+      with:
+        name: review-md
+        path: review.md
+        retention-days: 1
+        if-no-files-found: error
