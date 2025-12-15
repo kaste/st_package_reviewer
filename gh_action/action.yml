@@ -16,13 +16,10 @@ inputs:
     description: "Optional path to a local thecrawl repo, or a URL to clone (supports @ref to pin)"
     default: https://github.com/packagecontrol/thecrawl
     required: false
-  run_id:
-    description: Workflow run ID to download artifacts from (required for 'report', e.g. github.event.workflow_run.id)
-    required: false
   token:
-      description: 'GitHub Token (set automatically)'
-      required: false
-      default: ${{ github.token }}
+    description: GitHub token (optional; defaults to github.token)
+    default: ${{ github.token }}
+    required: false
 runs:
   using: composite
   steps:
@@ -41,8 +38,8 @@ runs:
             exit 2
           fi
         elif [[ "$phase" == "report" ]]; then
-          if [[ -z "${{ inputs.run_id }}" ]]; then
-            echo "::error ::Missing required input 'run_id' for phase=report" >&2
+          if [[ -z "${{ github.event.workflow_run.id }}" ]]; then
+            echo "::error ::phase=report requires a workflow_run trigger (missing github.event.workflow_run.id)" >&2
             exit 2
           fi
         else
