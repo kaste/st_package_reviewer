@@ -4,7 +4,9 @@ This composite action diffs a Package Control channel registry between a PR’s 
 
 ## Inputs
 
-- `pr` (required): Full PR URL, e.g. `https://github.com/wbond/package_control_channel/pull/9236`.
+- `step` (optional): `review` (default) or `report`.
+- `pr` (required for `step: review`): Full PR URL, e.g. `https://github.com/wbond/package_control_channel/pull/9236`.
+- `run_id` (required for `step: report`): The workflow run ID to download the `review-md` artifact from (e.g. `${{ github.event.workflow_run.id }}`).
 - `file` (optional): Path to the channel or repository file inside the repo. Default: `repository.json`.
 - `thecrawl` (optional): Path to a local `thecrawl` repo, or a git URL to clone a fork/branch/commit. Default: `https://github.com/packagecontrol/thecrawl`
 
@@ -22,19 +24,53 @@ on:
     paths:
       - 'repository.json'
 
+env:
+  GITHUB_TOKEN: ${{ github.token }}
+
 jobs:
   diff-and-review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Diff and review changed/added packages
-        uses: ./gh_action
+        uses: kaste/st_package_reviewer/gh_action@<PINNED_REF>
         with:
           pr: ${{ github.event.pull_request.html_url }}
-          file: repository.json
+          # file: repository.json
           # thecrawl: ../thecrawl                      # optional path
           # thecrawl: https://github.com/packagecontrol/thecrawl@my-branch   # optional URL with ref
 ```
+
+If you also want the review output posted as PR comments, create a second workflow like this:
+
+```yaml
+name: Post Review Comment
+on:
+  workflow_run:
+    workflows: ["Channel Diff and Review"] # must match the phase-1 workflow name
+    types: [completed]
+
+jobs:
+  post-review:
+    if: ${{ github.event.workflow_run.conclusion != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Post PR comment from artifact
+        uses: kaste/st_package_reviewer/gh_action@<PINNED_REF>
+        with:
+          step: report
+          run_id: ${{ github.event.workflow_run.id }}
+```
+
+This second workflow:
+- Downloads the `review-md` artifact produced by the first workflow (containing `review.md` and `review_pr_number.txt`).
+- Posts a new PR comment with the contents of `review.md`.
 
 ## Notes
 

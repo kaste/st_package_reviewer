@@ -2,12 +2,12 @@ name: Package Reviewer PR action
 description: Review a repository or channel PR
 inputs:
   step:
-    description: Action mode ('review' or 'report')
+    description: Action mode ('review' to generate the review, 'report' to post a PR comment)
     default: review
     required: false
   pr:
-    description: Pull Request URL (e.g. https://github.com/wbond/package_control_channel/pull/123)
-    required: true
+    description: Pull Request URL (required for 'review', e.g. https://github.com/owner/repo/pull/123)
+    required: false
   file:
     description: Path to channel JSON within the repo
     default: repository.json
@@ -16,11 +16,34 @@ inputs:
     description: "Optional path to a local thecrawl repo, or a URL to clone (supports @ref to pin)"
     default: https://github.com/packagecontrol/thecrawl
     required: false
+  run_id:
+    description: Workflow run ID to download artifacts from (required for 'report', e.g. github.event.workflow_run.id)
+    required: false
 runs:
   using: composite
   steps:
     - name: Ensure uv is available
       uses: astral-sh/setup-uv@v3
+
+    - name: Validate inputs
+      shell: bash
+      run: |
+        set -euo pipefail
+        step="${{ inputs.step }}"
+        if [[ "$step" == "review" ]]; then
+          if [[ -z "${{ inputs.pr }}" ]]; then
+            echo "::error ::Missing required input 'pr' for step=review" >&2
+            exit 2
+          fi
+        elif [[ "$step" == "report" ]]; then
+          if [[ -z "${{ inputs.run_id }}" ]]; then
+            echo "::error ::Missing required input 'run_id' for step=report" >&2
+            exit 2
+          fi
+        else
+          echo "::error ::Unknown step: $step (expected 'review' or 'report')" >&2
+          exit 2
+        fi
 
     - name: Run Package Reviewer
       if: inputs.step == 'review'
@@ -29,11 +52,67 @@ runs:
         set -euo pipefail
         "${{ github.action_path }}/action.sh" --pr "${{ inputs.pr }}" --file "${{ inputs.file }}" --thecrawl "${{ inputs.thecrawl }}"
 
+    - name: Write PR metadata
+      if: inputs.step == 'review'
+      shell: bash
+      run: |
+        set -euo pipefail
+        pr="${{ inputs.pr }}"
+        if [[ ! "$pr" =~ /pull/([0-9]+)(/|$) ]]; then
+          echo "::error ::Could not parse PR number from 'pr' URL: $pr" >&2
+          exit 2
+        fi
+        pr_number="${BASH_REMATCH[1]}"
+        printf '%s\n' "$pr_number" > review_pr_number.txt
+
     - name: Upload review artifact
       if: inputs.step == 'review'
       uses: actions/upload-artifact@v4
       with:
         name: review-md
-        path: review.md
+        path: |
+          review.md
+          review_pr_number.txt
         retention-days: 1
         if-no-files-found: error
+
+    - name: Download review artifact
+      if: inputs.step == 'report'
+      uses: actions/download-artifact@v4
+      with:
+        name: review-md
+        path: _handoff
+        run-id: ${{ inputs.run_id }}
+
+    - name: Post PR comment
+      if: inputs.step == 'report'
+      uses: actions/github-script@v7
+      env:
+        REVIEW_MD_PATH: _handoff/review.md
+        REVIEW_PR_NUMBER_PATH: _handoff/review_pr_number.txt
+      with:
+        script: |
+          const fs = require('fs');
+
+          const reviewPath = process.env.REVIEW_MD_PATH;
+          const body = fs.readFileSync(reviewPath, 'utf8');
+
+          const prNumberPath = process.env.REVIEW_PR_NUMBER_PATH;
+          const prNumberRaw = fs.readFileSync(prNumberPath, 'utf8').trim();
+          const prNumber = Number.parseInt(prNumberRaw, 10);
+          if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            throw new Error("Missing/invalid PR number in review_pr_number.txt");
+          }
+
+          const marker = `<!-- st_package_reviewer run_id=${{ inputs.run_id }} -->`;
+          const commentBody = `${marker}\n\n${body}`;
+
+          const { owner, repo } = context.repo;
+          const issue_number = prNumber;
+
+          await github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number,
+            body: commentBody,
+          });
