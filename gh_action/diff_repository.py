@@ -110,8 +110,12 @@ def _normalize_package(pkg: dict) -> dict:
     if not isinstance(pkg, dict):
         return pkg
 
-    # Shallow copy, "source" is a URL that can include a commit sha
-    norm = {k: v for k, v in pkg.items() if k != 'source'}
+    # Shallow copy, drop fields that vary by registry generation
+    norm = {
+        k: v
+        for k, v in pkg.items()
+        if k not in ('source', 'schema_version')
+    }
 
     # Normalize simple list fields
     for key in ('labels', 'previous_names'):
