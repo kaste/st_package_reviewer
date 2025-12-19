@@ -4,9 +4,11 @@ This composite action diffs a Package Control channel registry between a PR’s 
 
 ## Inputs
 
-- `pr` (required): Full PR URL, e.g. `https://github.com/wbond/package_control_channel/pull/9236`.
+- `phase` (optional): `review` (default) or `report`.
+- `pr` (required for `review`): Full PR URL, e.g. `https://github.com/wbond/package_control_channel/pull/9236`.
 - `file` (optional): Path to the channel or repository file inside the repo. Default: `repository.json`.
 - `thecrawl` (optional): Path to a local `thecrawl` repo, or a git URL to clone a fork/branch/commit. Default: `https://github.com/packagecontrol/thecrawl`
+- `token` (optional): GitHub token; if not set, the workflow token is used which is usually what you want.
 
 You can pin a ref with `@ref` for HTTPS URLs, e.g.:
   - `https://github.com/packagecontrol/thecrawl.git@feature-branch`
@@ -28,13 +30,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Diff and review changed/added packages
-        uses: ./gh_action
+        uses: kaste/st_package_reviewer/gh_action@<PINNED_REF>
         with:
           pr: ${{ github.event.pull_request.html_url }}
-          file: repository.json
+          # file: repository.json
           # thecrawl: ../thecrawl                      # optional path
           # thecrawl: https://github.com/packagecontrol/thecrawl@my-branch   # optional URL with ref
 ```
+
+If you also want the review output posted as PR comments, create a second workflow like this:
+
+```yaml
+name: Post Review Comment
+on:
+  workflow_run:
+    workflows: ["Channel Diff and Review"] # must match the phase-1 workflow name
+    types: [completed]
+
+jobs:
+  post-review:
+    if: ${{ github.event.workflow_run.conclusion != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Post PR comment from artifact
+        uses: kaste/st_package_reviewer/gh_action@<PINNED_REF>
+        with:
+          phase: report
+```
+
+This second workflow:
+- Downloads the `review-md` artifact produced by the first workflow (containing `review.md` and `review_pr_number.txt`).
+- Posts a new PR comment with the contents of `review.md`.
 
 ## Notes
 

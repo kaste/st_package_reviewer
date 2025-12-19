@@ -38,23 +38,26 @@ class CheckRunner:
             success &= not bool(self.warnings)
         return success
 
-    def report(self, file=None):
+    def report(self, file=None, compact=False):
         if not self._checked:
             raise RuntimeError("Check has not been performed yet")
         if file is None:
             file = sys.stdout
 
+        prefix = "" if compact else "Reporting "
+
         if self.failures:
-            print("Reporting {} failures:".format(len(self.failures)), file=file)
+            print("{}{} failures:".format(prefix, len(self.failures)), file=file)
         else:
             print("No failures", file=file)
+
         for failure in self.failures:
             failure.report(file=file)
 
         print(file=file)  # new line
 
         if self.warnings:
-            print("Reporting {} warnings:".format(len(self.warnings)), file=file)
+            print("{}{} warnings:".format(prefix, len(self.warnings)), file=file)
         else:
             print("No warnings", file=file)
 

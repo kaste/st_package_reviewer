@@ -17,6 +17,7 @@ EOF
 PR_URL=""
 REL_PATH="repository.json"
 THECRAWL="https://github.com/packagecontrol/thecrawl"
+REVIEW_MD="${GITHUB_WORKSPACE:-$PWD}/review.md"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -54,6 +55,43 @@ fi
 export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ST_PACKAGE_REVIEWER=${SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ST_PACKAGE_REVIEWER:-0.0.0}
 # Generic fallback for environments that ignore the project-specific variant
 export SETUPTOOLS_SCM_PRETEND_VERSION=${SETUPTOOLS_SCM_PRETEND_VERSION:-$SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ST_PACKAGE_REVIEWER}
+
+
+init_review_md() {
+  : >"$REVIEW_MD"
+  cat >>"$REVIEW_MD" <<'MD'
+# Package Review
+
+MD
+}
+
+append_changes_to_review_md() {
+  local changes_line="$1"
+  local msg="${changes_line#::notice title=CHANGES ::}"
+  if [[ -z "$changes_line" || "$msg" == "$changes_line" ]]; then
+    return 0
+  fi
+  {
+    echo "## Channel Diff"
+    echo
+    echo "$msg"
+    echo
+  } >>"$REVIEW_MD"
+}
+
+append_package_review_to_review_md() {
+  local pkg="$1" ver="$2" raw_path="$3"
+  {
+    echo "## Review for $pkg $ver"
+    echo
+    echo '```text'
+    cat "$raw_path"
+    echo '```'
+    echo
+  } >>"$REVIEW_MD"
+}
+
+init_review_md
 
 
 setup_thecrawl() {
@@ -188,17 +226,31 @@ echo "::endgroup::"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Invoke Python diff to print results and collect changed+added package names
+DIFF_STDERR="$TMPDIR/diff_repository.stderr"
 PKGS=()
 while IFS= read -r -d '' __pkg; do
   PKGS+=("$__pkg")
-done < <(python3 "$SCRIPT_DIR/diff_repository.py" --base-file "$BASE_REG" --target-file "$HEAD_REG" -z)
+done < <(python3 "$SCRIPT_DIR/diff_repository.py" --base-file "$BASE_REG" --target-file "$HEAD_REG" -z 2> >(tee "$DIFF_STDERR" >&2))
+append_changes_to_review_md "$(grep -m1 '^::notice title=CHANGES ::' "$DIFF_STDERR" 2>/dev/null || true)"
 
 if [[ ${#PKGS[@]} -eq 0 ]]; then
   echo "::notice ::No changed or added packages to crawl." >&2
+  {
+    echo "## Result"
+    echo
+    echo "No changed or added packages to review."
+    echo
+  } >>"$REVIEW_MD"
   exit 0
 fi
 
 echo "Crawling ${#PKGS[@]} package(s) from target registry…" >&2
+
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+echo "::group::Preparing st_package_reviewer environment" >&2
+(cd "$ROOT_DIR" && uv sync --no-dev) >&2
+echo "::endgroup::" >&2
+
 failures=0
 for pkg in "${PKGS[@]}"; do
   echo "::group::Crawling: $pkg" >&2
@@ -295,18 +347,26 @@ PY
 
     echo "::group::Reviewing $pkg-$safe_ver" >&2
     echo "  Reviewing with st_package_reviewer: $topdir" >&2
-    ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-    if ! (cd "$ROOT_DIR" && uv run st_package_reviewer "$topdir") | awk '
-      /^Reporting [0-9]+ failures:/ { mode = "error";   next }
-      /^Reporting [0-9]+ warnings:/ { mode = "warning"; next }
+    raw_review_out="$workdir/review.txt"
+    set +e
+    (cd "$ROOT_DIR" && uv run --no-sync st_package_reviewer --compact "$topdir") >"$raw_review_out" 2>&1
+    STATUS=$?
+    set -e
+
+    awk '
+      /^(Reporting )?[0-9]+ failures:/ { mode = "error";   next }
+      /^(Reporting )?[0-9]+ warnings:/ { mode = "warning"; next }
       /^- / && mode {
         sub(/^- /, "");
         print "::" mode " title=CHECK ::" $0;
         next;
       }
       { mode = ""; print }
-    ';
-    then
+    ' <"$raw_review_out"
+
+    append_package_review_to_review_md "$pkg" "$ver" "$raw_review_out"
+
+    if [[ $STATUS -ne 0 ]]; then
       echo "  ! Review failed for $pkg@$ver" >&2
       failures=$((failures+1))
       continue
