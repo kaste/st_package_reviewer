@@ -74,6 +74,8 @@ def main(args=None):
                         help="Do not check the package itself and only its repository.")
     parser.add_argument("-w", "--fail-on-warnings", action='store_true',
                         help="Return a non-zero exit code for warnings as well.")
+    parser.add_argument("--compact", action='store_true',
+                        help="Reduce output verbosity.")
     parser.add_argument("-v", "--verbose", action='store_true',
                         help="Increase verbosity.")
     parser.add_argument("--debug", action='store_true',
@@ -126,7 +128,8 @@ def main(args=None):
                 return 4
 
             if not _run_checks(repo_c.get_checkers(), out, args=[repo],
-                               fail_on_warnings=args.fail_on_warnings):
+                               fail_on_warnings=args.fail_on_warnings,
+                               compact=args.compact):
                 exit_code |= 2
             print(file=out)
 
@@ -147,11 +150,13 @@ def main(args=None):
 
         else:
             path = arg
-            _report_for(path.name, out)
-            l.info("Package path: %s", path)
+            if not args.compact:
+                _report_for(path.name, out)
+                l.info("Package path: %s", path)
 
         if not _run_checks(file_c.get_checkers(), out, args=[path],
-                           fail_on_warnings=args.fail_on_warnings):
+                           fail_on_warnings=args.fail_on_warnings,
+                           compact=args.compact):
             exit_code |= 1
 
         return exit_code
@@ -219,10 +224,10 @@ def _report_for(name, file):
     print(file=file)
 
 
-def _run_checks(checkers, file, args=[], kwargs={}, fail_on_warnings=False):
+def _run_checks(checkers, file, args=[], kwargs={}, fail_on_warnings=False, compact=False):
     runner = CheckRunner(checkers, fail_on_warnings)
     runner.run(*args, **kwargs)
-    runner.report(file=file)
+    runner.report(file=file, compact=compact)
     return runner.result()
 
 
