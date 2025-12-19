@@ -82,7 +82,7 @@ append_changes_to_review_md() {
 append_package_review_to_review_md() {
   local pkg="$1" ver="$2" raw_path="$3"
   {
-    echo "## \`$pkg\` Review (\`$ver\`)"
+    echo "## Review for $pkg $ver"
     echo
     echo '```text'
     cat "$raw_path"
@@ -349,13 +349,13 @@ PY
     echo "  Reviewing with st_package_reviewer: $topdir" >&2
     raw_review_out="$workdir/review.txt"
     set +e
-    (cd "$ROOT_DIR" && uv run --no-sync st_package_reviewer "$topdir") >"$raw_review_out" 2>&1
+    (cd "$ROOT_DIR" && uv run --no-sync st_package_reviewer --compact "$topdir") >"$raw_review_out" 2>&1
     STATUS=$?
     set -e
 
     awk '
-      /^Reporting [0-9]+ failures:/ { mode = "error";   next }
-      /^Reporting [0-9]+ warnings:/ { mode = "warning"; next }
+      /^(Reporting )?[0-9]+ failures:/ { mode = "error";   next }
+      /^(Reporting )?[0-9]+ warnings:/ { mode = "warning"; next }
       /^- / && mode {
         sub(/^- /, "");
         print "::" mode " title=CHECK ::" $0;
