@@ -28,7 +28,6 @@ jobs:
   diff-and-review:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - name: Diff and review changed/added packages
         uses: kaste/st_package_reviewer/gh_action@<PINNED_REF>
         with:
@@ -57,7 +56,6 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v5
       - name: Post PR comment from artifact
         uses: kaste/st_package_reviewer/gh_action@<PINNED_REF>
         with:
