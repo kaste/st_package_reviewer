@@ -77,7 +77,7 @@ This second workflow:
 
 ## What It Does
 
-- Resolves base/head repos and SHAs via `gh pr view`.
+- Resolves base/head repos and SHAs via `gh pr view`, then uses the PR merge base for diffs (falls back to the base ref if unavailable).
 - Builds a registry JSON at both SHAs using your local or cloned `thecrawl` (`uv run -m scripts.generate_registry`).
 - Diffs registries by package name; prints Removed/Changed/Added to stderr and emits changed+added names to stdout.
 - For each changed/added package:

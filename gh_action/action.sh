@@ -158,10 +158,32 @@ fetch_pr_metadata() {
   if [[ -z "$HEAD_NWO" ]]; then
     HEAD_NWO="$BASE_NWO"
   fi
+  local base_ref_sha="$BASE_SHA"
+  local merge_base_sha=""
+  merge_base_sha=$(resolve_merge_base "$BASE_NWO" "$BASE_SHA" "$HEAD_NWO" "$HEAD_SHA" || true)
+  if [[ -n "$merge_base_sha" ]]; then
+    BASE_SHA="$merge_base_sha"
+    echo "Merge base SHA: $merge_base_sha" >&2
+    if [[ "$base_ref_sha" != "$merge_base_sha" ]]; then
+      echo "Base ref SHA:   $base_ref_sha" >&2
+    fi
+  fi
   BASE_URL="https://raw.githubusercontent.com/${BASE_NWO}/${BASE_SHA}/${REL_PATH}"
   HEAD_URL="https://raw.githubusercontent.com/${HEAD_NWO}/${HEAD_SHA}/${REL_PATH}"
   echo "Base URL:   $BASE_URL" >&2
   echo "Target URL: $HEAD_URL" >&2
+}
+
+
+resolve_merge_base() {
+  local base_nwo="$1" base_sha="$2" head_nwo="$3" head_sha="$4"
+  local head_ref="$head_sha"
+  if [[ "$head_nwo" != "$base_nwo" ]]; then
+    local head_owner="${head_nwo%%/*}"
+    head_ref="${head_owner}:${head_sha}"
+  fi
+  gh api "repos/${base_nwo}/compare/${base_sha}...${head_ref}" \
+    -q '.merge_base_commit.sha'
 }
 
 
