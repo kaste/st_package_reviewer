@@ -83,3 +83,12 @@ This second workflow:
   - Reads the workspace JSON and downloads each release zip.
   - Unpacks the zip and runs `uv run st_package_reviewer <extracted_dir>`.
   - Aggregates failures and fails the job if any occurred.
+
+## Run locally
+
+E.g.
+
+```bash
+gh_action/action.sh --pr https://github.com/sublimehq/package_control_channel/pull/9269
+```
+
