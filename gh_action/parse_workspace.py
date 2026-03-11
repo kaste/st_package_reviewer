@@ -38,15 +38,8 @@ def main(argv=None) -> int:
         return 2
 
     releases = pkg.get("releases", [])
-    if not isinstance(releases, list):
-        return 0
-
-    selected = _newest_release(releases)
-
-    for rel in selected:
+    for rel in _newest_release(releases):
         url = rel.get("url")
-        if not url:
-            continue
         ver = rel.get("version", "")
         if args.z:
             print(f"{url}\t{ver}", end="\0")
