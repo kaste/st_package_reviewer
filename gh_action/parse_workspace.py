@@ -3,15 +3,17 @@ import json
 
 
 """
-Tooling: given a workspace file and a package name extract all url/version pairs from the releases.
+Tooling: given a workspace file and a package name, extract a single
+(url, version) pair for the newest release by date.
 
+Pre-releases are valid candidates.
 """
 
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(
         description=(
-            "Print release (url, version) pairs from a workspace file"
+            "Print the newest release (url, version) pair from a workspace file"
             " for a specific package"
         )
     )
@@ -36,9 +38,12 @@ def main(argv=None) -> int:
         return 2
 
     releases = pkg.get("releases", [])
-    for rel in releases:
-        if not isinstance(rel, dict):
-            continue
+    if not isinstance(releases, list):
+        return 0
+
+    selected = _newest_release(releases)
+
+    for rel in selected:
         url = rel.get("url")
         if not url:
             continue
@@ -48,6 +53,21 @@ def main(argv=None) -> int:
         else:
             print(f"{url}\t{ver}")
     return 0
+
+
+def _newest_release(releases: list[dict]) -> list[dict]:
+    candidates = [
+        rel
+        for rel in releases
+        if isinstance(rel, dict) and rel.get("url")
+    ]
+    if not candidates:
+        return []
+
+    # thecrawl emits sortable ISO-like timestamps for release dates,
+    # so plain string ordering is sufficient.
+    newest = max(candidates, key=lambda rel: str(rel.get("date", "")))
+    return [newest]
 
 
 if __name__ == "__main__":
