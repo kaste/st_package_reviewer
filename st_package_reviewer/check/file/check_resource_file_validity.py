@@ -29,9 +29,24 @@ class CheckJsoncFiles(FileChecker):
             with self.file_context(file_path):
                 with file_path.open(encoding='utf-8') as f:
                     try:
-                        jsonc.loads(f.read())
+                        data = jsonc.loads(f.read())
                     except ValueError as e:
                         self.fail("Invalid JSON (with comments)", exception=e)
+                        continue
+
+                self._verify_jsonc_collection_shape(file_path, data)
+
+    def _verify_jsonc_collection_shape(self, file_path, data):
+        if file_path.suffix not in {".sublime-menu", ".sublime-keymap", ".sublime-commands"}:
+            return
+
+        if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
+            self.fail("'.sublime-menu', '.sublime-keymap', and '.sublime-commands' "
+                      "must be a list of dicts")
+            return
+
+        if not data:
+            self.fail("Remove this file, it doesn't define anything")
 
 
 class CheckPlistFiles(FileChecker):

@@ -1,0 +1,6 @@
+- '.sublime-menu', '.sublime-keymap', and '.sublime-commands' must be a list of dicts
+    File: Bad.sublime-menu
+- '.sublime-menu', '.sublime-keymap', and '.sublime-commands' must be a list of dicts
+    File: Bad.sublime-keymap
+- '.sublime-menu', '.sublime-keymap', and '.sublime-commands' must be a list of dicts
+    File: Bad.sublime-commands
