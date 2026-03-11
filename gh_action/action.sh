@@ -378,6 +378,7 @@ PY
     awk '
       /^(Reporting )?[0-9]+ failures:/ { mode = "error";   next }
       /^(Reporting )?[0-9]+ warnings:/ { mode = "warning"; next }
+      /^(Reporting )?[0-9]+ notices:/ { mode = "notice"; next }
       /^- / && mode {
         sub(/^- /, "");
         print "::" mode " title=CHECK ::" $0;

@@ -11,6 +11,7 @@ class CheckRunner:
         self.fail_on_warnings = fail_on_warnings
         self.failures = []
         self.warnings = []
+        self.notices = []
         self._checked = False
 
     def run(self, *args, **kwargs):
@@ -23,6 +24,7 @@ class CheckRunner:
             checker_obj.perform_check()
             self.failures.extend(checker_obj.failures)
             self.warnings.extend(checker_obj.warnings)
+            self.notices.extend(checker_obj.notices)
             l.debug("Checker '%s' result: %s",
                     checker_obj.__class__.__name__,
                     checker_obj.result())
@@ -63,5 +65,15 @@ class CheckRunner:
 
         for warning in self.warnings:
             warning.report(file=file)
+
+        print(file=file)  # new line
+
+        if self.notices:
+            print("{}{} notices:".format(prefix, len(self.notices)), file=file)
+        else:
+            print("No notices", file=file)
+
+        for notice in self.notices:
+            notice.report(file=file)
 
         print(file=file)  # new line

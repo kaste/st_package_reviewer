@@ -118,8 +118,14 @@ def test_reviewer_integration(package_path, check_runner):
     assert not (warning_asserts and all_warning_asserts), \
         "Only one warnings meta file is allowed"
 
+    notice_asserts = _read_check_asserts(Path(package_path, "notices"))
+    all_notice_asserts = _read_check_asserts(Path(package_path, "all_notices"))
+    assert not (notice_asserts and all_notice_asserts), \
+        "Only one notices meta file is allowed"
+
     assert_none = not (failure_asserts or all_failure_asserts
-                       or warning_asserts or all_warning_asserts)
+                       or warning_asserts or all_warning_asserts
+                       or notice_asserts or all_notice_asserts)
 
     failures = {CheckAssert(failure.message, failure.details)
                 for failure in check_runner.failures}
@@ -127,9 +133,12 @@ def test_reviewer_integration(package_path, check_runner):
     warnings = {CheckAssert(warning.message, warning.details)
                 for warning in check_runner.warnings}
     assert len(warnings) == len(check_runner.warnings), "TODO: Revisit tests"
+    notices = {CheckAssert(notice.message, notice.details)
+               for notice in check_runner.notices}
+    assert len(notices) == len(check_runner.notices), "TODO: Revisit tests"
 
     if assert_none:
-        assert not failures and not warnings
+        assert not failures and not warnings and not notices
     else:
         if all_failure_asserts:
             assert failures == all_failure_asserts
@@ -140,6 +149,11 @@ def test_reviewer_integration(package_path, check_runner):
             assert warnings == all_warning_asserts
         elif warning_asserts:
             assert warnings >= warning_asserts
+
+        if all_notice_asserts:
+            assert notices == all_notice_asserts
+        elif notice_asserts:
+            assert notices >= notice_asserts
 
     if failures:
         assert not check_runner.result()

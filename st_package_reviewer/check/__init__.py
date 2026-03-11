@@ -19,12 +19,14 @@ class Checker(metaclass=abc.ABCMeta):
     def __init__(self):
         self.failures = []
         self.warnings = []
+        self.notices = []
         self._checked = False
         self._context_stack = []
 
         # construct reporting functions
         self.fail = functools.partial(self._append_report, self.failures)
         self.warn = functools.partial(self._append_report, self.warnings)
+        self.notice = functools.partial(self._append_report, self.notices)
 
     def _append_report(self, append_to, message, context=None, exception=None, exc_info=None):
         # TODO capture calling frame

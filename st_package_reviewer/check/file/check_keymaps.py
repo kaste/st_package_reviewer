@@ -56,14 +56,25 @@ class CheckKeymaps(FileChecker):
                         if conflict not in conflicts:
                             conflicts.append(conflict)
 
-                    # import pdb; pdb.set_trace()
+                masked_conflicts = []
                 for conflict in conflicts:
                     if conflict.get('context'):
-                        self.warn("The binding {} is also defined in default bindings "
-                                  "but is masked with a 'context'".format(conflict['keys']))
+                        masked_conflicts.append(conflict)
                     else:
                         self.fail("The binding {} unconditionally overrides a default binding"
                                   .format(conflict['keys']))
+
+                if masked_conflicts:
+                    conflict_bindings = self._format_conflicting_bindings(masked_conflicts)
+                    context_keys = self._extract_context_keys(masked_conflicts)
+                    plural = "s" if len(conflict_bindings) != 1 else ""
+                    verb = "are" if len(conflict_bindings) != 1 else "is"
+                    context_suffix = ", ".join(context_keys) if context_keys else "(none detected)"
+                    self.notice(
+                        "The package defines binding{} {} that {} also defined in default "
+                        "bindings and correctly masked with a 'context'. Used context key(s): {}"
+                        .format(plural, ", ".join(conflict_bindings), verb, context_suffix)
+                    )
 
     def _verify_keymap(self, k_map):
         allowed_keys = {'keys', 'command', 'args', 'context'}
@@ -105,6 +116,30 @@ class CheckKeymaps(FileChecker):
         # do actual deletion (in reverse)
         for i in sorted(idx_to_del, reverse=True):
             del k_map.data[i]
+
+    @staticmethod
+    def _format_conflicting_bindings(conflicts):
+        seen = set()
+        ordered_bindings = []
+        for conflict in conflicts:
+            chord_tuple = tuple(conflict['keys'])
+            if chord_tuple in seen:
+                continue
+            seen.add(chord_tuple)
+            ordered_bindings.append(conflict['keys'])
+        return [repr(binding) for binding in ordered_bindings]
+
+    @staticmethod
+    def _extract_context_keys(conflicts):
+        context_keys = set()
+        for conflict in conflicts:
+            context = conflict.get('context', ())
+            if isinstance(context, dict):
+                context = (context,)
+            for context_clause in context:
+                if isinstance(context_clause, dict) and context_clause.get('key'):
+                    context_keys.add(context_clause['key'])
+        return sorted(context_keys)
 
 
 class KeyMappingError(ValueError):
