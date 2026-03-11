@@ -1,6 +1,7 @@
 import logging
 
 from . import FileChecker
+from ...lib import jsonc
 
 
 l = logging.getLogger(__name__)
@@ -76,3 +77,95 @@ class CheckSettingsFileName(FileChecker):
         with self.context("Expected file: {}".format(expected_name)):
             self.warn("No standard settings file matches the package name {!r}. Found: {}"
                       .format(self.package_name, found_names))
+
+
+class CheckSettingsMenuEntry(FileChecker):
+
+    def check(self):
+        settings_files = sorted(self.glob("**/*.sublime-settings"))
+        if not settings_files:
+            return
+
+        menu_path = self.sub_path("Main.sublime-menu")
+        if not menu_path.is_file():
+            self.warn("Package defines '.sublime-settings' files but is missing "
+                      "'Main.sublime-menu'")
+            return
+
+        with self.file_context(menu_path):
+            menu_data = self._load_menu_file(menu_path)
+            if menu_data is None or not self.package_name:
+                return
+
+            package_node = self._find_package_settings_node(menu_data, self.package_name)
+            if package_node is None:
+                self.warn("'Main.sublime-menu' has no 'Package Settings' entry for {!r}"
+                          .format(self.package_name))
+                return
+
+            expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(self.package_name)
+            settings_entries = self._find_settings_entries(package_node)
+            if not settings_entries:
+                self.warn("'Main.sublime-menu' has no 'Settings' menu entry for {!r}"
+                          .format(self.package_name))
+                return
+
+            matching_entries = [
+                entry for entry in settings_entries
+                if entry.get('args', {}).get('base_file') == expected_base_file
+            ]
+            if not matching_entries:
+                found_base_files = sorted({
+                    entry.get('args', {}).get('base_file', '<missing>')
+                    for entry in settings_entries
+                })
+                self.warn("'Main.sublime-menu' has no 'Settings' entry with "
+                          "'args.base_file' set to {!r}. Found: {}"
+                          .format(expected_base_file, ", ".join(found_base_files)))
+                return
+
+            if all(not entry.get('args', {}).get('default') for entry in matching_entries):
+                self.notice("Tip: add 'args.default' to the 'Settings' menu entry. "
+                            "A minimal default is \"{}\".")
+
+    def _find_package_settings_node(self, menu_data, package_name):
+        package_settings_nodes = [
+            node for node in self._iter_menu_nodes(menu_data)
+            if isinstance(node, dict)
+            and (node.get('id') == 'package-settings' or node.get('caption') == 'Package Settings')
+        ]
+
+        for package_settings_node in package_settings_nodes:
+            for node in self._iter_menu_nodes(package_settings_node.get('children', ())):
+                if isinstance(node, dict) and node.get('caption') == package_name:
+                    return node
+        return None
+
+    def _find_settings_entries(self, package_node):
+        settings_entries = []
+        for node in self._iter_menu_nodes(package_node.get('children', ())):
+            if not isinstance(node, dict):
+                continue
+            if node.get('caption') == 'Settings' and node.get('command') == 'edit_settings':
+                settings_entries.append(node)
+        return settings_entries
+
+    def _iter_menu_nodes(self, value):
+        if isinstance(value, dict):
+            yield value
+            children = value.get('children')
+            if isinstance(children, list):
+                for child in children:
+                    yield from self._iter_menu_nodes(child)
+        elif isinstance(value, list):
+            for item in value:
+                yield from self._iter_menu_nodes(item)
+
+    @staticmethod
+    def _load_menu_file(path):
+        with path.open(encoding='utf-8') as f:
+            try:
+                return jsonc.loads(f.read())
+            except ValueError as e:
+                l.debug("Unable to parse menu file %s: %s", path, e)
+                return None

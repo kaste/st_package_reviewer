@@ -1,0 +1,2 @@
+- Tip: add 'args.default' to the 'Settings' menu entry. A minimal default is "{}".
+    File: Main.sublime-menu

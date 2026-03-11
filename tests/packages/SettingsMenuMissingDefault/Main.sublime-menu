@@ -1,0 +1,26 @@
+[
+  {
+    "caption": "Preferences",
+    "id": "preferences",
+    "children": [
+      {
+        "caption": "Package Settings",
+        "id": "package-settings",
+        "children": [
+          {
+            "caption": "File Browser",
+            "children": [
+              {
+                "caption": "Settings",
+                "command": "edit_settings",
+                "args": {
+                  "base_file": "${packages}/File Browser/File Browser.sublime-settings"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
