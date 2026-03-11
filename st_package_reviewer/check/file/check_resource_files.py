@@ -136,13 +136,10 @@ class CheckKeymapMenuEntry(FileChecker):
         if not keymap_files:
             return
 
-        has_settings_files = bool(self.glob("**/*.sublime-settings"))
-
         menu_path = self.sub_path("Main.sublime-menu")
         if not menu_path.is_file():
-            if not has_settings_files:
-                self.warn("Package defines '.sublime-keymap' files but is missing "
-                          "'Main.sublime-menu'")
+            self.warn("Package defines '.sublime-keymap' files but is missing "
+                      "'Main.sublime-menu'")
             return
 
         with self.file_context(menu_path):
@@ -152,9 +149,8 @@ class CheckKeymapMenuEntry(FileChecker):
 
             package_node = _find_package_settings_node(menu_data, self.package_name)
             if package_node is None:
-                if not has_settings_files:
-                    self.warn("'Main.sublime-menu' has no 'Package Settings' entry for key "
-                              "bindings of {!r}".format(self.package_name))
+                self.warn("'Main.sublime-menu' has no 'Package Settings' entry for key "
+                          "bindings of {!r}".format(self.package_name))
                 return
 
             key_binding_entries = _find_edit_settings_entries(package_node, caption="Key Bindings")
