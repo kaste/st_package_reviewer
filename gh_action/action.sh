@@ -371,7 +371,7 @@ PY
     echo "  Reviewing with st_package_reviewer: $topdir" >&2
     raw_review_out="$workdir/review.txt"
     set +e
-    (cd "$ROOT_DIR" && uv run --no-sync st_package_reviewer --compact "$topdir") >"$raw_review_out" 2>&1
+    (cd "$ROOT_DIR" && uv run --no-sync st_package_reviewer --compact --package-name "$pkg" "$topdir") >"$raw_review_out" 2>&1
     STATUS=$?
     set -e
 

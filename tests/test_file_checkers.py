@@ -102,10 +102,18 @@ def test_reviewer_integration(package_path, check_runner):
     in files named "failures" and "warnings" respectively.
     If all failures or warnings should be compared,
     specify them in "all_failures" and "all_warnings".
+
+    A package can optionally define a "package_name" metadata file. If present,
+    its content is passed to file checkers as the proposed registry package name.
     """
+    check_kwargs = {}
+    package_name_file = Path(package_path, "package_name")
+    if package_name_file.is_file():
+        check_kwargs["package_name"] = package_name_file.read_text(encoding='utf-8').strip()
+
     # Run checks first and report them to stdout,
     # so we have something to inspect when the test fails.
-    check_runner.run(package_path)
+    check_runner.run(package_path, **check_kwargs)
     check_runner.report()
 
     failure_asserts = _read_check_asserts(Path(package_path, "failures"))

@@ -57,3 +57,22 @@ class CheckHasResourceFiles(FileChecker):
         if not has_resource_files:
             self.fail("The package does not define any file that interfaces with Sublime Text")
 
+
+class CheckSettingsFileName(FileChecker):
+
+    def check(self):
+        if not self.package_name:
+            return
+
+        settings_files = sorted(self.glob("**/*.sublime-settings"))
+        if not settings_files:
+            return
+
+        expected_name = "{}.sublime-settings".format(self.package_name)
+        if any(path.name == expected_name for path in settings_files):
+            return
+
+        found_names = ", ".join(path.name for path in settings_files)
+        with self.context("Expected file: {}".format(expected_name)):
+            self.warn("No standard settings file matches the package name {!r}. Found: {}"
+                      .format(self.package_name, found_names))

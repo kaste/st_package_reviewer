@@ -13,9 +13,10 @@ class FileChecker(Checker):
     Also adds utilities for file systems to the Checker class.
     """
 
-    def __init__(self, base_path):
+    def __init__(self, base_path, package_name=None):
         super().__init__()
         self.base_path = base_path
+        self.package_name = package_name
 
     @staticmethod
     # Cache results of glob calls (this is naive, but realistic)

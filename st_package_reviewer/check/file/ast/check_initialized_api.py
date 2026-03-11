@@ -31,8 +31,8 @@ class CheckInitializedApiUsage(AstChecker):
     - functions that are called from the module scope
     """
 
-    def __init__(self, base_path):
-        super().__init__(base_path)
+    def __init__(self, base_path, package_name=None):
+        super().__init__(base_path, package_name=package_name)
 
     def visit_Module(self, node):
         self._module_calls = set()
