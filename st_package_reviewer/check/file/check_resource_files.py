@@ -93,18 +93,18 @@ class CheckSettingsMenuEntry(FileChecker):
             return
 
         with self.file_context(menu_path):
-            menu_data = self._load_menu_file(menu_path)
+            menu_data = _load_menu_file(menu_path)
             if menu_data is None or not self.package_name:
                 return
 
-            package_node = self._find_package_settings_node(menu_data, self.package_name)
+            package_node = _find_package_settings_node(menu_data, self.package_name)
             if package_node is None:
                 self.warn("'Main.sublime-menu' has no 'Package Settings' entry for {!r}"
                           .format(self.package_name))
                 return
 
             expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(self.package_name)
-            settings_entries = self._find_settings_entries(package_node)
+            settings_entries = _find_edit_settings_entries(package_node, caption="Settings")
             if not settings_entries:
                 self.warn("'Main.sublime-menu' has no 'Settings' menu entry for {!r}"
                           .format(self.package_name))
@@ -128,44 +128,122 @@ class CheckSettingsMenuEntry(FileChecker):
                 self.notice("Tip: add 'args.default' to the 'Settings' menu entry. "
                             "A minimal default is \"{}\".")
 
-    def _find_package_settings_node(self, menu_data, package_name):
-        package_settings_nodes = [
-            node for node in self._iter_menu_nodes(menu_data)
-            if isinstance(node, dict)
-            and (node.get('id') == 'package-settings' or node.get('caption') == 'Package Settings')
-        ]
 
-        for package_settings_node in package_settings_nodes:
-            for node in self._iter_menu_nodes(package_settings_node.get('children', ())):
-                if isinstance(node, dict) and node.get('caption') == package_name:
-                    return node
-        return None
+class CheckKeymapMenuEntry(FileChecker):
 
-    def _find_settings_entries(self, package_node):
-        settings_entries = []
-        for node in self._iter_menu_nodes(package_node.get('children', ())):
-            if not isinstance(node, dict):
-                continue
-            if node.get('caption') == 'Settings' and node.get('command') == 'edit_settings':
-                settings_entries.append(node)
-        return settings_entries
+    def check(self):
+        keymap_files = sorted(self.glob("**/*.sublime-keymap"))
+        if not keymap_files:
+            return
 
-    def _iter_menu_nodes(self, value):
-        if isinstance(value, dict):
-            yield value
-            children = value.get('children')
-            if isinstance(children, list):
-                for child in children:
-                    yield from self._iter_menu_nodes(child)
-        elif isinstance(value, list):
-            for item in value:
-                yield from self._iter_menu_nodes(item)
+        has_settings_files = bool(self.glob("**/*.sublime-settings"))
 
-    @staticmethod
-    def _load_menu_file(path):
-        with path.open(encoding='utf-8') as f:
-            try:
-                return jsonc.loads(f.read())
-            except ValueError as e:
-                l.debug("Unable to parse menu file %s: %s", path, e)
-                return None
+        menu_path = self.sub_path("Main.sublime-menu")
+        if not menu_path.is_file():
+            if not has_settings_files:
+                self.warn("Package defines '.sublime-keymap' files but is missing "
+                          "'Main.sublime-menu'")
+            return
+
+        with self.file_context(menu_path):
+            menu_data = _load_menu_file(menu_path)
+            if menu_data is None or not self.package_name:
+                return
+
+            package_node = _find_package_settings_node(menu_data, self.package_name)
+            if package_node is None:
+                if not has_settings_files:
+                    self.warn("'Main.sublime-menu' has no 'Package Settings' entry for key "
+                              "bindings of {!r}".format(self.package_name))
+                return
+
+            key_binding_entries = _find_edit_settings_entries(package_node, caption="Key Bindings")
+            if not key_binding_entries:
+                self.warn("'Main.sublime-menu' has no 'Key Bindings' menu entry for {!r}"
+                          .format(self.package_name))
+                return
+
+            expected_base_files = _expected_keymap_base_files(self.package_name, keymap_files,
+                                                              self.rel_path)
+            matching_entries = [
+                entry for entry in key_binding_entries
+                if entry.get('args', {}).get('base_file') in expected_base_files
+            ]
+            if matching_entries:
+                return
+
+            found_base_files = sorted({
+                entry.get('args', {}).get('base_file', '<missing>')
+                for entry in key_binding_entries
+            })
+            self.warn("'Main.sublime-menu' has no 'Key Bindings' entry with 'args.base_file' "
+                      "set to one of {}. Found: {}"
+                      .format(", ".join(repr(path) for path in expected_base_files),
+                              ", ".join(found_base_files)))
+
+
+def _find_package_settings_node(menu_data, package_name):
+    package_settings_nodes = [
+        node for node in _iter_menu_nodes(menu_data)
+        if isinstance(node, dict)
+        and (node.get('id') == 'package-settings' or node.get('caption') == 'Package Settings')
+    ]
+
+    for package_settings_node in package_settings_nodes:
+        for node in _iter_menu_nodes(package_settings_node.get('children', ())):
+            if isinstance(node, dict) and node.get('caption') == package_name:
+                return node
+    return None
+
+
+def _find_edit_settings_entries(package_node, caption):
+    entries = []
+    for node in _iter_menu_nodes(package_node.get('children', ())):
+        if not isinstance(node, dict):
+            continue
+        if node.get('caption') == caption and node.get('command') == 'edit_settings':
+            entries.append(node)
+    return entries
+
+
+def _expected_keymap_base_files(package_name, keymap_files, rel_path_func):
+    platform_variants = {
+        "Default (Linux).sublime-keymap",
+        "Default (OSX).sublime-keymap",
+        "Default (Windows).sublime-keymap",
+    }
+
+    expected = set()
+    for keymap_file in keymap_files:
+        rel_path = rel_path_func(keymap_file)
+        rel_path = rel_path.as_posix()
+
+        for variant in platform_variants:
+            if rel_path.endswith(variant):
+                rel_path = rel_path[:-len(variant)] + "Default (${platform}).sublime-keymap"
+                break
+
+        expected.add("${{packages}}/{}/{}".format(package_name, rel_path))
+
+    return sorted(expected)
+
+
+def _iter_menu_nodes(value):
+    if isinstance(value, dict):
+        yield value
+        children = value.get('children')
+        if isinstance(children, list):
+            for child in children:
+                yield from _iter_menu_nodes(child)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _iter_menu_nodes(item)
+
+
+def _load_menu_file(path):
+    with path.open(encoding='utf-8') as f:
+        try:
+            return jsonc.loads(f.read())
+        except ValueError as e:
+            l.debug("Unable to parse menu file %s: %s", path, e)
+            return None

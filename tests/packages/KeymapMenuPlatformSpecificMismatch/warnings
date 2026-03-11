@@ -1,0 +1,2 @@
+- 'Main.sublime-menu' has no 'Key Bindings' entry with 'args.base_file' set to one of '${packages}/File Browser/keymaps/Default (${platform}).sublime-keymap'. Found: ${packages}/File Browser/keymaps/Default.sublime-keymap
+    File: Main.sublime-menu
