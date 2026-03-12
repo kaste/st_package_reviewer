@@ -33,9 +33,9 @@ $ pip install st-package-reviewer
 ## Usage
 
 ```
-usage: st_package_reviewer [-h] [--version] [--clip] [--repo-only] [-w] [-v]
-                           [--debug]
-                           [path_or_URL [path_or_URL ...]]
+usage: st_package_reviewer [-h] [--version] [--clip] [--repo-only]
+                           [--package-name PACKAGE_NAME] [-w] [--compact] [-v]
+                           [--debug] [path_or_URL [path_or_URL ...]]
 
 Check a Sublime Text package for common errors.
 
@@ -47,8 +47,12 @@ optional arguments:
   --version             show program's version number and exit
   --clip                Copy report to clipboard.
   --repo-only           Do not check the package itself and only its repository.
+  --package-name PACKAGE_NAME
+                        Proposed package name (as used in the registry;
+                        enables additional checks).
   -w, --fail-on-warnings
                         Return a non-zero exit code for warnings as well.
+  --compact             Reduce output verbosity.
   -v, --verbose         Increase verbosity.
   --debug               Enter pdb on exceptions. Implies --verbose.
 
@@ -96,6 +100,8 @@ This repo uses [uv](https://github.com/astral-sh/uv) and targets Python 3.13.
   - Interactive: `uv run st_package_reviewer`
   - Local path: `uv run st_package_reviewer /path/to/package`
   - GitHub repo URL: `uv run st_package_reviewer https://github.com/owner/repo`
+  - Override package name during local review:
+    `uv run st_package_reviewer --package-name "My Package" /path/to/package`
 
 ## Publishing
 
