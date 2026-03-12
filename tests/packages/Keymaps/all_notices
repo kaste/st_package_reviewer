@@ -1,2 +1,2 @@
-- The package defines binding ['enter'] that is also defined in default bindings and correctly masked with a 'context'. Used context key(s): following_text, preceding_text, selection_empty, setting.auto_indent
+- The package defines binding ['enter'] that is also defined in default bindings and masked with a 'context'. Used context key(s): following_text, preceding_text, selection_empty, setting.auto_indent
     File: Default.sublime-keymap

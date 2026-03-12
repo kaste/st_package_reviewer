@@ -72,7 +72,7 @@ class CheckKeymaps(FileChecker):
                     context_suffix = ", ".join(context_keys) if context_keys else "(none detected)"
                     self.notice(
                         "The package defines binding{} {} that {} also defined in default "
-                        "bindings and correctly masked with a 'context'. Used context key(s): {}"
+                        "bindings and masked with a 'context'. Used context key(s): {}"
                         .format(plural, ", ".join(conflict_bindings), verb, context_suffix)
                     )
 

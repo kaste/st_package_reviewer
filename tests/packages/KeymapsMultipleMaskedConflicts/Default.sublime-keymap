@@ -1,0 +1,18 @@
+[
+  {
+    "keys": ["enter"],
+    "command": "noop",
+    "context": [
+      {"key": "setting.auto_indent", "operator": "equal", "operand": true},
+      {"key": "selection_empty", "operator": "equal", "operand": true}
+    ]
+  },
+  {
+    "keys": ["ctrl+b"],
+    "command": "noop",
+    "context": [
+      {"key": "selector", "operator": "equal", "operand": "source.python"},
+      {"key": "panel_visible", "operator": "equal", "operand": true}
+    ]
+  }
+]

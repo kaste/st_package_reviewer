@@ -1,0 +1,2 @@
+- The package defines bindings ['enter'], ['ctrl+b'] that are also defined in default bindings and masked with a 'context'. Used context key(s): panel_visible, selection_empty, selector, setting.auto_indent
+    File: Default.sublime-keymap
