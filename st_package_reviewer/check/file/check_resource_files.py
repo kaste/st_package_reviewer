@@ -110,8 +110,22 @@ class CheckSettingsMenuEntry(FileChecker):
                           .format(self.package_name))
                 return
 
+            valid_entries, missing_command_count, custom_commands = _analyze_settings_commands(
+                settings_entries)
+            if missing_command_count:
+                self.fail("'Main.sublime-menu' has a 'Settings' entry for {!r} without a "
+                          "'command' key"
+                          .format(self.package_name))
+
+            for command in custom_commands:
+                self.notice("The command referenced for editing settings is `{}`."
+                            .format(command))
+
+            if not valid_entries:
+                return
+
             matching_entries = [
-                entry for entry in settings_entries
+                entry for entry in valid_entries
                 if entry.get('args', {}).get('base_file') == expected_base_file
             ]
             if not matching_entries:
@@ -153,16 +167,31 @@ class CheckKeymapMenuEntry(FileChecker):
                           "bindings of {!r}".format(self.package_name))
                 return
 
-            key_binding_entries = _find_edit_settings_entries(package_node, caption="Key Bindings")
+            key_binding_entries = _find_edit_settings_entries(package_node,
+                                                              caption="Key Bindings")
             if not key_binding_entries:
                 self.warn("'Main.sublime-menu' has no 'Key Bindings' menu entry for {!r}"
                           .format(self.package_name))
                 return
 
+            valid_entries, missing_command_count, custom_commands = _analyze_settings_commands(
+                key_binding_entries)
+            if missing_command_count:
+                self.fail("'Main.sublime-menu' has a 'Key Bindings' entry for {!r} without "
+                          "a 'command' key"
+                          .format(self.package_name))
+
+            for command in custom_commands:
+                self.notice("The command referenced for editing key bindings is `{}`."
+                            .format(command))
+
+            if not valid_entries:
+                return
+
             expected_base_files = _expected_keymap_base_files(self.package_name, keymap_files,
                                                               self.rel_path)
             matching_entries = [
-                entry for entry in key_binding_entries
+                entry for entry in valid_entries
                 if entry.get('args', {}).get('base_file') in expected_base_files
             ]
             if matching_entries:
@@ -170,7 +199,7 @@ class CheckKeymapMenuEntry(FileChecker):
 
             found_base_files = sorted({
                 entry.get('args', {}).get('base_file', '<missing>')
-                for entry in key_binding_entries
+                for entry in valid_entries
             })
             self.warn("'Main.sublime-menu' has no 'Key Bindings' entry with 'args.base_file' "
                       "set to one of {}. Found: {}"
@@ -197,9 +226,27 @@ def _find_edit_settings_entries(package_node, caption):
     for node in _iter_menu_nodes(package_node.get('children', ())):
         if not isinstance(node, dict):
             continue
-        if node.get('caption') == caption and node.get('command') == 'edit_settings':
+        if node.get('caption') == caption:
             entries.append(node)
     return entries
+
+
+def _analyze_settings_commands(entries):
+    valid_entries = []
+    custom_commands = set()
+    missing_command_count = 0
+
+    for entry in entries:
+        command = entry.get('command')
+        if not command:
+            missing_command_count += 1
+            continue
+
+        valid_entries.append(entry)
+        if command != 'edit_settings':
+            custom_commands.add(command)
+
+    return valid_entries, missing_command_count, sorted(custom_commands)
 
 
 def _expected_keymap_base_files(package_name, keymap_files, rel_path_func):
