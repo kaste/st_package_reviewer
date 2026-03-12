@@ -291,6 +291,35 @@ for pkg in "${PKGS[@]}"; do
     continue
   fi
 
+  tags_mode=0
+  repo_url=""
+  pkg_meta_out="$TMPDIR/pkg_meta/${pkg}.txt"
+  mkdir -p "$(dirname "$pkg_meta_out")"
+  if python3 "$SCRIPT_DIR/inspect_registry_package.py" \
+      --source "$HEAD_URL" \
+      --name "$pkg" >"$pkg_meta_out"; then
+    while IFS=$'\t' read -r key value; do
+      [[ -z "${key:-}" ]] && continue
+      key="${key%$'\r'}"
+      value="${value%$'\r'}"
+      case "$key" in
+        tags_mode) tags_mode="$value" ;;
+        repo) repo_url="$value" ;;
+      esac
+    done <"$pkg_meta_out"
+  else
+    echo "::warning ::Unable to inspect registry metadata for $pkg; skipping repo checks." >&2
+  fi
+
+  review_repo_args=()
+  if [[ "$tags_mode" == "1" ]]; then
+    if [[ -n "$repo_url" ]]; then
+      review_repo_args=(--repo "$repo_url")
+    else
+      echo "::warning title=CHECK ::Package appears to be in tags mode, but no repository URL was found; skipping repo tag checks." >&2
+    fi
+  fi
+
   # Extract release URLs (and versions) from workspace
   RELS=()
   while IFS= read -r -d '' __rec; do
@@ -371,7 +400,7 @@ PY
     echo "  Reviewing with st_package_reviewer: $topdir" >&2
     raw_review_out="$workdir/review.txt"
     set +e
-    (cd "$ROOT_DIR" && uv run --no-sync st_package_reviewer --compact --package-name "$pkg" "$topdir") >"$raw_review_out" 2>&1
+    (cd "$ROOT_DIR" && uv run --no-sync st_package_reviewer --compact --package-name "$pkg" "${review_repo_args[@]}" "$topdir") >"$raw_review_out" 2>&1
     STATUS=$?
     set -e
 
@@ -384,6 +413,7 @@ PY
         print "::" mode " title=CHECK ::" $0;
         next;
       }
+      /^    / && mode { print; next }
       { mode = ""; print }
     ' <"$raw_review_out"
 

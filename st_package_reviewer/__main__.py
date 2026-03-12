@@ -74,6 +74,9 @@ def main(args=None):
                         help="Do not check the package itself and only its repository.")
     parser.add_argument("--package-name",
                         help="Proposed package name (as used in the registry).")
+    parser.add_argument("--repo", nargs='?', const='.',
+                        help="Enable repository checks for package paths. Optional value: "
+                             "git repo path or URL. Default: current directory (.).")
     parser.add_argument("-w", "--fail-on-warnings", action='store_true',
                         help="Return a non-zero exit code for warnings as well.")
     parser.add_argument("--compact", action='store_true',
@@ -159,6 +162,8 @@ def main(args=None):
         file_check_kwargs = {}
         if args.package_name:
             file_check_kwargs['package_name'] = args.package_name
+        if args.repo is not None:
+            file_check_kwargs['repo'] = args.repo
 
         if not _run_checks(file_c.get_checkers(), out, args=[path],
                            kwargs=file_check_kwargs,

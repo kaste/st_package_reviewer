@@ -80,6 +80,10 @@ This second workflow:
 - Diffs registries by package name; prints Removed/Changed/Added to stderr and emits changed+added names to stdout.
 - For each changed/added package:
   - Runs `uv run -m scripts.crawl --registry <target-registry> --workspace <ws.json> --name <pkg>`.
+  - Inspects the target registry package definition; if it is in tag mode
+    (implicit `tags: true` or releases without `asset`/`url`/`branch`), the action passes
+    `--repo <details-url>` to `st_package_reviewer` to enable repository tag checks.
+    This is needed because extracted release archives usually do not contain a `.git` directory.
   - Reads the workspace JSON and selects only the newest release (by date; pre-releases are valid), then downloads that zip file.
   - Unpacks each zip and runs `uv run st_package_reviewer <extracted_dir>`.
   - Aggregates failures and fails the job if any occurred.
