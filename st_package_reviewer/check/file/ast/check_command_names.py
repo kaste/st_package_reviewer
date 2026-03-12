@@ -50,6 +50,11 @@ class CheckCommandNames(AstChecker):
         if len(self.command_names) < 2:
             return
 
+        common_prefix = self._find_common_prefix(self.command_names)
+        if common_prefix:
+            self.notice("Common used command prefix is: {}."
+                        .format(common_prefix))
+
         prefixes = {self._extract_prefix(name) for name in self.command_names}
         if len(prefixes) > 1:
             self.warn("Found multiple command prefixes: {}."
@@ -68,6 +73,16 @@ class CheckCommandNames(AstChecker):
         command_name = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", command_name)
         command_name = re.sub(r"_+", "_", command_name).strip("_").lower()
         return command_name or None
+
+    @staticmethod
+    def _find_common_prefix(command_names):
+        command_segments = [name.split("_") for name in command_names]
+        common_segments = []
+        for segment_group in zip(*command_segments):
+            if len(set(segment_group)) != 1:
+                break
+            common_segments.append(segment_group[0])
+        return "_".join(common_segments) or None
 
     @staticmethod
     def _extract_prefix(command_name):
