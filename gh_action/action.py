@@ -99,41 +99,22 @@ def main(argv: list[str] | None = None) -> None:
             if not generate_registry(crawler_repo, pr_meta.head_url, head_reg):
                 raise SystemExit(1)
 
-        script_dir = Path(__file__).resolve().parent
-        root_dir = script_dir.parent
         try:
             head_packages = load_registry_packages(head_reg)
         except Exception as exc:
-            console.write(f"::error ::Failed to load generated registry: {exc}")
+            console.write(f"::error ::Failed to load generated target registry: {exc}")
             raise SystemExit(1)
 
-        diff_proc = run(
-            sys.executable,
-            str(script_dir / "diff_repository.py"),
-            "--base-file",
-            str(base_reg),
-            "--target-file",
-            str(head_reg),
-            "-z",
-            capture_output=True,
-            check=False,
-        )
-        if diff_proc.stderr:
-            for line in diff_proc.stderr.splitlines():
-                console.write(line)
-        if diff_proc.returncode != 0:
-            console.write(
-                f"::error ::diff_repository.py failed with exit code {diff_proc.returncode}."
-            )
+        try:
+            pkgs, changes_summary = diff_registry_packages(base_reg, head_reg)
+        except Exception as exc:
+            console.write(f"::error ::Failed to diff generated registries: {exc}")
             raise SystemExit(1)
-        pkgs = [p for p in diff_proc.stdout.split("\0") if p]
 
-        changes_line = ""
-        for line in diff_proc.stderr.splitlines():
-            if line.startswith("::notice title=CHANGES ::"):
-                changes_line = line
-                break
-        append_changes_to_review_md(review_md, changes_line)
+        console.write(f"::notice title=CHANGES ::{changes_summary}")
+        with review_md.open("a", encoding="utf-8") as f:
+            f.write("## Channel Diff\n\n")
+            f.write(f"{changes_summary}\n\n")
 
         if not pkgs:
             console.write("::notice ::No changed or added packages to crawl.")
@@ -143,6 +124,7 @@ def main(argv: list[str] | None = None) -> None:
 
         console.write(f"Crawling {len(pkgs)} package(s) from target registry…")
 
+        root_dir = Path(__file__).resolve().parent.parent
         with console.group("Preparing st_package_reviewer environment"):
             run_sh("uv sync --no-dev", cwd=root_dir)
 
@@ -312,8 +294,74 @@ def newest_workspace_release(releases: list[dict]) -> dict | None:
     return max(candidates, key=lambda release: str(release.get("date", "")))
 
 
+def diff_registry_packages(base_file: Path, target_file: Path) -> tuple[list[str], str]:
+    with base_file.open("r", encoding="utf-8") as f:
+        base_data = json.load(f)
+    with target_file.open("r", encoding="utf-8") as f:
+        target_data = json.load(f)
+
+    base_map = extract_registry_map(base_data)
+    target_map = extract_registry_map(target_data)
+
+    base_names = set(base_map.keys())
+    target_names = set(target_map.keys())
+
+    removed = sorted(base_names - target_names)
+    added = sorted(target_names - base_names)
+
+    changed = [
+        name
+        for name in (base_names & target_names)
+        if normalize_package(base_map[name]) != normalize_package(target_map[name])
+    ]
+    changed.sort()
+
+    changes_summary = (
+        f"Removed {format_oxford_list(removed)}, "
+        f"changed {format_oxford_list(changed)}, "
+        f"added {format_oxford_list(added)}."
+    )
+
+    return changed + added, changes_summary
+
+
+def extract_registry_map(registry_json: dict) -> dict[str, dict[str, object]]:
+    return {package["name"]: package for package in registry_json["packages"]}
+
+
+def format_oxford_list(items: list[str]) -> str:
+    count = len(items)
+    if count == 0:
+        return "(none)"
+    if count == 1:
+        return items[0]
+    if count == 2:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
+
+
+def normalize_package(package: dict[str, object]) -> dict[str, object]:
+    normalized = {
+        key: value
+        for key, value in package.items()
+        if key not in ("source", "schema_version")
+    }
+
+    for key in ("labels", "previous_names"):
+        if key in normalized and isinstance(normalized[key], list):
+            normalized[key] = sorted(normalized[key], key=lambda value: str(value))
+
+    if "releases" in normalized and isinstance(normalized["releases"], list):
+        normalized["releases"] = sorted(
+            normalized["releases"],
+            key=lambda release: json.dumps(release, sort_keys=True),
+        )
+
+    return normalized
+
+
 def inspect_registry_package(
-    package: dict[str, object],
+    package: dict[str, object] | None,
     package_name: str,
     console: Console,
 ) -> tuple[bool, str]:
@@ -339,7 +387,7 @@ def load_registry_packages(registry_file: Path) -> dict[str, dict[str, object]]:
     with registry_file.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
-    return {package["name"]: package for package in data["packages"]}
+    return extract_registry_map(data)
 
 
 def is_tags_mode(package_definition: dict[str, object]) -> bool:
@@ -484,15 +532,6 @@ def command_exists(name: str) -> bool:
 def init_review_md(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("# Package Review\n\n", encoding="utf-8")
-
-
-def append_changes_to_review_md(path: Path, changes_line: str) -> None:
-    prefix = "::notice title=CHANGES ::"
-    if not changes_line.startswith(prefix):
-        return
-    msg = changes_line[len(prefix):]
-    with path.open("a", encoding="utf-8") as f:
-        f.write(f"## Channel Diff\n\n{msg}\n\n")
 
 
 def append_package_review_to_review_md(
