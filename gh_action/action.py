@@ -12,9 +12,30 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from urllib.parse import urljoin
-from urllib.request import urlopen
 import zipfile
+
+
+def parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="action.py",
+        description=(
+            "Diff a channel/repository PR and review changed packages."
+        ),
+    )
+    parser.add_argument("--pr", required=True, help="GitHub Pull Request URL")
+    parser.add_argument(
+        "--file",
+        default="repository.json",
+        help="Path within repo to channel JSON (default: repository.json)",
+    )
+    parser.add_argument(
+        "--thecrawl",
+        default="https://github.com/packagecontrol/thecrawl",
+        help="Path to local thecrawl repo or URL (supports @ref for https URLs)",
+    )
+    ns = parser.parse_args(argv)
+    ns.file = ns.file[2:] if ns.file.startswith("./") else ns.file
+    return ns
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -80,6 +101,11 @@ def main(argv: list[str] | None = None) -> None:
 
         script_dir = Path(__file__).resolve().parent
         root_dir = script_dir.parent
+        try:
+            head_packages = load_registry_packages(head_reg)
+        except Exception as exc:
+            console.write(f"::error ::Failed to load generated registry: {exc}")
+            raise SystemExit(1)
 
         diff_proc = run(
             sys.executable,
@@ -95,6 +121,11 @@ def main(argv: list[str] | None = None) -> None:
         if diff_proc.stderr:
             for line in diff_proc.stderr.splitlines():
                 console.write(line)
+        if diff_proc.returncode != 0:
+            console.write(
+                f"::error ::diff_repository.py failed with exit code {diff_proc.returncode}."
+            )
+            raise SystemExit(1)
         pkgs = [p for p in diff_proc.stdout.split("\0") if p]
 
         changes_line = ""
@@ -143,7 +174,7 @@ def main(argv: list[str] | None = None) -> None:
 
             review_repo_args: list[str] = []
             tags_mode, repo_url = inspect_registry_package(
-                pr_meta.head_url,
+                head_packages.get(pkg),
                 pkg,
                 console,
             )
@@ -246,29 +277,6 @@ class Console:
         print(message, file=sys.stdout)
 
 
-def parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog="action.py",
-        description=(
-            "Diff a channel/repository PR and review changed packages."
-        ),
-    )
-    parser.add_argument("--pr", required=True, help="GitHub Pull Request URL")
-    parser.add_argument(
-        "--file",
-        default="repository.json",
-        help="Path within repo to channel JSON (default: repository.json)",
-    )
-    parser.add_argument(
-        "--thecrawl",
-        default="https://github.com/packagecontrol/thecrawl",
-        help="Path to local thecrawl repo or URL (supports @ref for https URLs)",
-    )
-    ns = parser.parse_args(argv)
-    ns.file = ns.file[2:] if ns.file.startswith("./") else ns.file
-    return ns
-
-
 def parse_workspace_release(workspace: Path, package_name: str) -> dict[str, str] | None:
     try:
         with workspace.open("r", encoding="utf-8") as f:
@@ -305,11 +313,10 @@ def newest_workspace_release(releases: list[dict]) -> dict | None:
 
 
 def inspect_registry_package(
-    source_url: str,
+    package: dict[str, object],
     package_name: str,
     console: Console,
 ) -> tuple[bool, str]:
-    package = find_package(source_url, package_name)
     if package is None:
         console.write(
             f"::warning ::Unable to inspect registry metadata for {package_name}; "
@@ -317,7 +324,7 @@ def inspect_registry_package(
         )
         return False, ""
 
-    repo = package.get("details") if isinstance(package.get("details"), str) else ""
+    repo = package.get("details", "")
     tags_mode = is_tags_mode(package)
     if tags_mode and not repo:
         console.write(
@@ -328,51 +335,16 @@ def inspect_registry_package(
     return tags_mode, repo
 
 
-def find_package(source_url: str, package_name: str) -> dict[str, object] | None:
-    pending = [source_url]
-    seen: set[str] = set()
+def load_registry_packages(registry_file: Path) -> dict[str, dict[str, object]]:
+    with registry_file.open("r", encoding="utf-8") as f:
+        data = json.load(f)
 
-    while pending:
-        url = pending.pop(0)
-        if url in seen:
-            continue
-        seen.add(url)
-
-        try:
-            data = load_json_url(url)
-        except Exception:
-            return None
-        if not isinstance(data, dict):
-            continue
-
-        for package in data.get("packages", []):
-            if isinstance(package, dict) and package.get("name") == package_name:
-                return package
-
-        includes = data.get("includes")
-        if not isinstance(includes, list):
-            continue
-
-        for include in includes:
-            if isinstance(include, str) and include:
-                pending.append(urljoin(url, include))
-
-    return None
-
-
-def load_json_url(url: str):
-    with urlopen(url) as response:
-        return json.load(response)
+    return {package["name"]: package for package in data["packages"]}
 
 
 def is_tags_mode(package_definition: dict[str, object]) -> bool:
-    releases = package_definition.get("releases")
-    if not isinstance(releases, list) or not releases:
-        return True
-
+    releases = package_definition.get("releases", [])
     for release in releases:
-        if not isinstance(release, dict):
-            continue
         if any(key in release for key in ("asset", "url", "branch")):
             return False
 
@@ -424,13 +396,18 @@ def unzip_release(
             console.write(f"::error  ::! Unzip failed for {pkg}@{ver} (Python)")
             return None
 
-    extracted_dirs = [p for p in workdir.iterdir() if p.is_dir()]
-    topdir = extracted_dirs[0] if extracted_dirs else None
-    if topdir is None:
-        console.write(f"::error  ::! Could not locate extracted folder for {pkg}@{ver}")
-        return None
+    extracted_entries = [p for p in workdir.iterdir()]
+    extracted_dirs = [p for p in extracted_entries if p.is_dir()]
+    extracted_files = [p for p in extracted_entries if p.is_file()]
 
-    return topdir
+    if len(extracted_dirs) == 1 and not extracted_files:
+        return extracted_dirs[0]
+
+    console.write(
+        f"::notice ::Using flat archive root for {pkg}@{ver} "
+        f"({len(extracted_dirs)} dir(s), {len(extracted_files)} file(s))."
+    )
+    return workdir
 
 
 def run_sh(
