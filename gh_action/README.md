@@ -80,12 +80,13 @@ This second workflow:
 - Diffs registries by package name; prints Removed/Changed/Added to stderr and emits changed+added names to stdout.
 - For each changed/added package:
   - Runs `uv run -m scripts.crawl --registry <target-registry> --workspace <ws.json> --name <pkg>`.
-  - Inspects the target registry package definition; if it is in tag mode
-    (implicit `tags: true` or releases without `asset`/`url`/`branch`), it:
+  - Uses `EFFECTIVE=1 uv run -m scripts.crawl --explain <pkg>` to read effective tags-mode status
+    and the normalized effective release `base` URL.
+  - If effective tags-mode is reported, it:
     - still keeps the regular crawl result as a compatibility check,
-    - creates a temporary one-package registry with `releases: [{"branch": true}]`,
+    - creates a temporary one-package registry with `releases: [{"branch": true, "base": <effective-base>}]`,
     - crawls that rewritten registry and uses that workspace for review materialization.
-  - In tag mode, the action also passes `--repo <details-url>` to `st_package_reviewer`
+  - In tag mode, the action also passes `--repo <effective-base-url>` to `st_package_reviewer`
     to enable repository tag checks (release archives usually do not contain a `.git` directory).
   - Reads the selected workspace JSON and picks the newest emitted release (by date), then downloads that zip file.
   - Unpacks each zip and runs `uv run st_package_reviewer <extracted_dir>`.

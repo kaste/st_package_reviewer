@@ -146,25 +146,29 @@ def main(argv: list[str] | None = None) -> None:
                     failures += 1
                     continue
 
-            package_definition = head_packages.get(pkg)
+            with console.group(f"Inspecting effective mode: {pkg}"):
+                tags_mode, repo_url = check_pkg_crawl_mode(
+                    crawler_repo,
+                    head_reg,
+                    pkg,
+                    console,
+                )
+
             review_repo_args: list[str] = []
-            tags_mode, repo_url = inspect_registry_package(
-                package_definition,
-                pkg,
-                console,
-            )
+            review_wsfile = regular_wsfile
             if tags_mode and repo_url:
+                # saved for the later review, tells the reviewer to run the repo checks
                 review_repo_args = ["--repo", repo_url]
 
-            review_wsfile = regular_wsfile
-            if tags_mode:
                 tags_reg = tmpdir / "tags_mode_registry" / f"{pkg}.json"
                 with console.group(f"Preparing tags-mode branch crawl: {pkg}"):
                     console.write(f"Temporary registry is {tags_reg}")
+                    package_definition = head_packages.get(pkg)
                     if not write_tags_mode_registry(
                         package_definition,
                         pkg,
                         tags_reg,
+                        repo_url,
                         console,
                     ):
                         failures += 1
@@ -327,6 +331,60 @@ def parse_workspace_release(workspace: Path, package_name: str) -> dict[str, str
     }
 
 
+def check_pkg_crawl_mode(
+    crawler_repo: Path,
+    registry_file: Path,
+    package_name: str,
+    console: Console,
+) -> tuple[bool, str]:
+    explain = run(
+        "uv",
+        "run",
+        "-m",
+        "scripts.crawl",
+        "--registry",
+        str(registry_file),
+        "--explain",
+        package_name,
+        cwd=crawler_repo,
+        capture_output=True,
+        check=False,
+        env={"EFFECTIVE": "1"},
+    )
+    if explain.stdout:
+        console.write(explain.stdout.rstrip("\n"))
+
+    if explain.returncode != 0:
+        return False, ""
+
+    lines = [line.strip() for line in explain.stdout.splitlines() if line.strip()]
+    if not lines:
+        return False, ""
+
+    status_line = ""
+    json_lines = lines
+    if not lines[0].startswith("{"):
+        status_line = lines[0]
+        json_lines = lines[1:]
+
+    try:
+        normalized_package = json.loads("\n".join(json_lines))
+    except json.JSONDecodeError:
+        return False, ""
+
+    tags_mode = "tags-mode" in status_line.lower()
+    repo_url = extract_effective_release_base(normalized_package)
+    return tags_mode, repo_url
+
+
+def extract_effective_release_base(normalized_package: dict[str, object]) -> str:
+    releases = normalized_package.get("releases")
+    if not releases:
+        return ""
+
+    return releases[-1].get("base", "")
+
+
 def crawl_package(
     crawler_repo: Path,
     registry_file: Path,
@@ -358,6 +416,7 @@ def write_tags_mode_registry(
     package_definition: dict[str, object] | None,
     package_name: str,
     output_file: Path,
+    repo_url: str,
     console: Console,
 ) -> bool:
     if package_definition is None:
@@ -370,17 +429,10 @@ def write_tags_mode_registry(
     rewritten_package = dict(package_definition)
     rewritten_package.pop("releases", None)
 
-    rewritten_release: dict[str, object] = {"branch": True}
-    details = rewritten_package.get("details")
-    if not (isinstance(details, str) and details):
-        if inferred_base := infer_release_base(package_definition):
-            rewritten_release["base"] = inferred_base
-        else:
-            console.write(
-                f"::warning ::Package {package_name} has no details/base metadata; "
-                "tags-mode branch crawl may fail."
-            )
-
+    rewritten_release: dict[str, object] = {
+        "branch": True,
+        "base": repo_url,
+    }
     rewritten_package["releases"] = [rewritten_release]
 
     source = rewritten_package.get("source")
@@ -398,21 +450,6 @@ def write_tags_mode_registry(
         encoding="utf-8",
     )
     return True
-
-
-def infer_release_base(package_definition: dict[str, object]) -> str:
-    releases = package_definition.get("releases", [])
-    if not isinstance(releases, list):
-        return ""
-
-    for release in releases:
-        if not isinstance(release, dict):
-            continue
-        base = release.get("base")
-        if isinstance(base, str) and base:
-            return base
-
-    return ""
 
 
 def format_tags_mode_review_version(
@@ -595,49 +632,11 @@ def normalize_package(package: dict[str, object]) -> dict[str, object]:
     return normalized
 
 
-def inspect_registry_package(
-    package: dict[str, object] | None,
-    package_name: str,
-    console: Console,
-) -> tuple[bool, str]:
-    if package is None:
-        console.write(
-            f"::warning ::Unable to inspect registry metadata for {package_name}; "
-            "skipping repo checks."
-        )
-        return False, ""
-
-    raw_repo = package.get("details", "")
-    repo = raw_repo if isinstance(raw_repo, str) else ""
-    tags_mode = is_tags_mode(package)
-    if tags_mode and not repo:
-        console.write(
-            "::warning title=CHECK ::Package appears to be in tags mode, "
-            "but no repository URL was found; skipping repo tag checks."
-        )
-
-    return tags_mode, repo
-
-
 def load_registry_packages(registry_file: Path) -> dict[str, dict[str, object]]:
     with registry_file.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
     return extract_registry_map(data)
-
-
-def is_tags_mode(package_definition: dict[str, object]) -> bool:
-    releases = package_definition.get("releases", [])
-    if not isinstance(releases, list) or not releases:
-        return True
-
-    for release in releases:
-        if isinstance(release, dict) and any(
-            key in release for key in ("asset", "url", "branch")
-        ):
-            return False
-
-    return True
 
 
 def generate_registry(crawler_repo: Path, registry_url: str, output: Path) -> bool:
