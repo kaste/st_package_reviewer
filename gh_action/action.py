@@ -12,6 +12,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urljoin
+from urllib.request import urlopen
 import zipfile
 
 
@@ -139,152 +141,80 @@ def main(argv: list[str] | None = None) -> None:
                     failures += 1
                     continue
 
-                tags_mode = "0"
-                repo_url = ""
-                inspect = run(
-                    sys.executable,
-                    str(script_dir / "inspect_registry_package.py"),
-                    "--source",
-                    pr_meta.head_url,
-                    "--name",
-                    pkg,
-                    capture_output=True,
-                    check=False,
-                )
-                if inspect.returncode == 0:
-                    for row in inspect.stdout.splitlines():
-                        if "\t" not in row:
-                            continue
-                        key, value = row.split("\t", 1)
-                        key = key.rstrip("\r")
-                        value = value.rstrip("\r")
-                        if key == "tags_mode":
-                            tags_mode = value
-                        elif key == "repo":
-                            repo_url = value
-                else:
-                    console.write(
-                        f"::warning ::Unable to inspect registry metadata for {pkg}; "
-                        "skipping repo checks."
-                    )
+            review_repo_args: list[str] = []
+            tags_mode, repo_url = inspect_registry_package(
+                pr_meta.head_url,
+                pkg,
+                console,
+            )
+            if tags_mode and repo_url:
+                review_repo_args = ["--repo", repo_url]
 
-                review_repo_args: list[str] = []
-                if tags_mode == "1":
-                    if repo_url:
-                        review_repo_args = ["--repo", repo_url]
-                    else:
-                        console.write(
-                            "::warning title=CHECK ::Package appears to be in tags mode, "
-                            "but no repository URL was found; skipping repo tag checks."
-                        )
+            release = parse_workspace_release(wsfile, pkg)
+            if release is None:
+                console.write(f"::error  ::! No releases found for {pkg}")
+                failures += 1
+                continue
 
-                parsed = run(
-                    sys.executable,
-                    str(script_dir / "parse_workspace.py"),
-                    str(wsfile),
-                    pkg,
-                    "-z",
-                    capture_output=True,
-                    check=False,
+            url = release.get("url", "")
+            if not url:
+                console.write(f"::error  ::! Missing release URL for {pkg}")
+                failures += 1
+                continue
+
+            ver = release.get("version", "")
+            if not ver:
+                console.write(
+                    f"::warning ::Could not extract a version for {pkg} "
+                    f"(url: {url}); using r1"
                 )
-                rels = [r for r in parsed.stdout.split("\0") if r]
-                if not rels:
-                    console.write(f"::error  ::! No releases found for {pkg}")
+                ver = "r1"
+
+            safe_ver = re.sub(r"[^A-Za-z0-9._-]", "_", ver)
+            workdir = tmpdir / "review" / pkg / safe_ver
+            workdir.mkdir(parents=True, exist_ok=True)
+
+            zipfile_path = workdir / "pkg.zip"
+            with console.group(f"Downloading {pkg}-{ver}"):
+                console.write(f"  Downloading release {ver}: {url}")
+                if not download_zip(url, zipfile_path, console):
+                    console.write(f"::error  ::! Download failed for {pkg}@{ver}")
                     failures += 1
                     continue
 
-            for i, rec in enumerate(rels, start=1):
-                if "\t" in rec:
-                    url, ver = rec.split("\t", 1)
-                else:
-                    url, ver = rec, ""
-
-                if not url:
-                    console.write(
-                        f"::error  ::! Missing release URL for {pkg} release #{i}"
-                    )
-                    failures += 1
-                    continue
-
-                if not ver:
-                    console.write(
-                        f"::warning ::Could not extract a version for {pkg} "
-                        f"release #{i} (url: {url}); using r{i}"
-                    )
-                    ver = f"r{i}"
-
-                safe_ver = re.sub(r"[^A-Za-z0-9._-]", "_", ver)
-                workdir = tmpdir / "review" / pkg / safe_ver
-                workdir.mkdir(parents=True, exist_ok=True)
-
-                zipfile_path = workdir / "pkg.zip"
-                topdir = None
-                with console.group(f"Downloading {pkg}-{ver}"):
-                    console.write(f"  Downloading release {ver}: {url}")
-                    if not download_zip(url, zipfile_path, console):
-                        console.write(f"::error  ::! Download failed for {pkg}@{ver}")
-                        failures += 1
-                        continue
-
-                    console.write("  Unpacking…")
-                    if shutil.which("unzip"):
-                        unzip = run(
-                            "unzip", "-q", "-o", str(zipfile_path), "-d", str(workdir),
-                            check=False,
-                        )
-                        if unzip.returncode != 0:
-                            console.write(f"::error  ::! Unzip failed for {pkg}@{ver}")
-                            failures += 1
-                            continue
-                    else:
-                        console.write("::notice ::unzip not available; falling back to use Python.")
-                        try:
-                            with zipfile.ZipFile(zipfile_path) as zf:
-                                zf.extractall(workdir)
-                        except Exception:
-                            console.write(f"::error  ::! Unzip failed for {pkg}@{ver} (Python)")
-                            failures += 1
-                            continue
-
-                    extracted_dirs = [p for p in workdir.iterdir() if p.is_dir()]
-                    topdir = extracted_dirs[0] if extracted_dirs else None
-                    if topdir is None:
-                        console.write(
-                            f"::error  ::! Could not locate extracted folder for {pkg}@{ver}"
-                        )
-                        failures += 1
-                        continue
-
+            with console.group(f"Unzipping {pkg}-{ver}"):
+                topdir = unzip_release(zipfile_path, workdir, pkg, ver, console)
                 if topdir is None:
+                    failures += 1
                     continue
 
-                with console.group(f"Reviewing {pkg}-{safe_ver}"):
-                    console.write(f"  Reviewing with st_package_reviewer: {topdir}")
-                    raw_review_out = workdir / "review.txt"
-                    with raw_review_out.open("w", encoding="utf-8") as out_file:
-                        review = run(
-                            "uv",
-                            "run",
-                            "--no-sync",
-                            "st_package_reviewer",
-                            "--compact",
-                            "--package-name",
-                            pkg,
-                            *review_repo_args,
-                            str(topdir),
-                            cwd=root_dir,
-                            stdout=out_file,
-                            stderr=subprocess.STDOUT,
-                            check=False,
-                        )
+            with console.group(f"Reviewing {pkg}-{safe_ver}"):
+                console.write(f"  Reviewing with st_package_reviewer: {topdir}")
+                raw_review_out = workdir / "review.txt"
+                with raw_review_out.open("w", encoding="utf-8") as out_file:
+                    review = run(
+                        "uv",
+                        "run",
+                        "--no-sync",
+                        "st_package_reviewer",
+                        "--compact",
+                        "--package-name",
+                        pkg,
+                        *review_repo_args,
+                        str(topdir),
+                        cwd=root_dir,
+                        stdout=out_file,
+                        stderr=subprocess.STDOUT,
+                        check=False,
+                    )
 
-                    emit_review_annotations(raw_review_out, console)
-                    append_package_review_to_review_md(review_md, pkg, ver, raw_review_out)
+                emit_review_annotations(raw_review_out, console)
+                append_package_review_to_review_md(review_md, pkg, ver, raw_review_out)
 
-                    if review.returncode != 0:
-                        console.write(f"  ! Review failed for {pkg}@{ver}")
-                        failures += 1
-                        continue
+                if review.returncode != 0:
+                    console.write(f"  ! Review failed for {pkg}@{ver}")
+                    failures += 1
+                    continue
 
     if failures > 0:
         console.write(f"::error ::Completed with {failures} failure(s).")
@@ -339,6 +269,116 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     return ns
 
 
+def parse_workspace_release(workspace: Path, package_name: str) -> dict[str, str] | None:
+    try:
+        with workspace.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return None
+
+    packages = data.get("packages", {})
+    package = packages.get(package_name)
+    if not isinstance(package, dict):
+        return None
+
+    releases = package.get("releases", [])
+    newest = newest_workspace_release(releases)
+    if newest is None:
+        return None
+
+    return {
+        "url": str(newest.get("url") or ""),
+        "version": str(newest.get("version") or ""),
+    }
+
+
+def newest_workspace_release(releases: list[dict]) -> dict | None:
+    candidates = [
+        release
+        for release in releases
+        if isinstance(release, dict) and release.get("url")
+    ]
+    if not candidates:
+        return None
+
+    return max(candidates, key=lambda release: str(release.get("date", "")))
+
+
+def inspect_registry_package(
+    source_url: str,
+    package_name: str,
+    console: Console,
+) -> tuple[bool, str]:
+    package = find_package(source_url, package_name)
+    if package is None:
+        console.write(
+            f"::warning ::Unable to inspect registry metadata for {package_name}; "
+            "skipping repo checks."
+        )
+        return False, ""
+
+    repo = package.get("details") if isinstance(package.get("details"), str) else ""
+    tags_mode = is_tags_mode(package)
+    if tags_mode and not repo:
+        console.write(
+            "::warning title=CHECK ::Package appears to be in tags mode, "
+            "but no repository URL was found; skipping repo tag checks."
+        )
+
+    return tags_mode, repo
+
+
+def find_package(source_url: str, package_name: str) -> dict[str, object] | None:
+    pending = [source_url]
+    seen: set[str] = set()
+
+    while pending:
+        url = pending.pop(0)
+        if url in seen:
+            continue
+        seen.add(url)
+
+        try:
+            data = load_json_url(url)
+        except Exception:
+            return None
+        if not isinstance(data, dict):
+            continue
+
+        for package in data.get("packages", []):
+            if isinstance(package, dict) and package.get("name") == package_name:
+                return package
+
+        includes = data.get("includes")
+        if not isinstance(includes, list):
+            continue
+
+        for include in includes:
+            if isinstance(include, str) and include:
+                pending.append(urljoin(url, include))
+
+    return None
+
+
+def load_json_url(url: str):
+    with urlopen(url) as response:
+        return json.load(response)
+
+
+def is_tags_mode(package_definition: dict[str, object]) -> bool:
+    releases = package_definition.get("releases")
+    if not isinstance(releases, list) or not releases:
+        return True
+
+    for release in releases:
+        if not isinstance(release, dict):
+            continue
+        if any(key in release for key in ("asset", "url", "branch")):
+            return False
+
+    return True
+
+
 def generate_registry(crawler_repo: Path, registry_url: str, output: Path) -> bool:
     proc = run(
         "uv",
@@ -353,6 +393,44 @@ def generate_registry(crawler_repo: Path, registry_url: str, output: Path) -> bo
         check=False,
     )
     return proc.returncode == 0
+
+
+def unzip_release(
+    zipfile_path: Path,
+    workdir: Path,
+    pkg: str,
+    ver: str,
+    console: Console,
+) -> Path | None:
+    if shutil.which("unzip"):
+        unzip = run(
+            "unzip",
+            "-q",
+            "-o",
+            str(zipfile_path),
+            "-d",
+            str(workdir),
+            check=False,
+        )
+        if unzip.returncode != 0:
+            console.write(f"::error  ::! Unzip failed for {pkg}@{ver}")
+            return None
+    else:
+        console.write("::notice ::unzip not available; falling back to use Python.")
+        try:
+            with zipfile.ZipFile(zipfile_path) as zf:
+                zf.extractall(workdir)
+        except Exception:
+            console.write(f"::error  ::! Unzip failed for {pkg}@{ver} (Python)")
+            return None
+
+    extracted_dirs = [p for p in workdir.iterdir() if p.is_dir()]
+    topdir = extracted_dirs[0] if extracted_dirs else None
+    if topdir is None:
+        console.write(f"::error  ::! Could not locate extracted folder for {pkg}@{ver}")
+        return None
+
+    return topdir
 
 
 def run_sh(
