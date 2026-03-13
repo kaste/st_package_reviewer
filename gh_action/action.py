@@ -429,6 +429,9 @@ def unzip_release(
     ver: str,
     console: Console,
 ) -> Path | None:
+    extract_root = workdir / "extracted"
+    extract_root.mkdir(parents=True, exist_ok=True)
+
     if shutil.which("unzip"):
         unzip = run(
             "unzip",
@@ -436,7 +439,7 @@ def unzip_release(
             "-o",
             str(zipfile_path),
             "-d",
-            str(workdir),
+            str(extract_root),
             check=False,
         )
         if unzip.returncode != 0:
@@ -446,12 +449,12 @@ def unzip_release(
         console.write("::notice ::unzip not available; falling back to use Python.")
         try:
             with zipfile.ZipFile(zipfile_path) as zf:
-                zf.extractall(workdir)
+                zf.extractall(extract_root)
         except Exception:
             console.write(f"::error  ::! Unzip failed for {pkg}@{ver} (Python)")
             return None
 
-    extracted_entries = [p for p in workdir.iterdir()]
+    extracted_entries = [p for p in extract_root.iterdir()]
     extracted_dirs = [p for p in extracted_entries if p.is_dir()]
     extracted_files = [p for p in extracted_entries if p.is_file()]
 
@@ -462,7 +465,7 @@ def unzip_release(
         f"::notice ::Using flat archive root for {pkg}@{ver} "
         f"({len(extracted_dirs)} dir(s), {len(extracted_files)} file(s))."
     )
-    return workdir
+    return extract_root
 
 
 def run_sh(
