@@ -97,6 +97,11 @@ def find_all(path, package, base_class=Checker, exclude=()):
                 l.debug("Found %s subclass: %r", base_class.__name__, thing)
                 all_checkers.add(thing)
 
-    l.debug("Loaded %d checkers", len(all_checkers))
+    ordered_checkers = tuple(sorted(all_checkers, key=checker_sort_key))
+    l.debug("Loaded %d checkers", len(ordered_checkers))
 
-    return all_checkers
+    return ordered_checkers
+
+
+def checker_sort_key(checker_cls):
+    return (checker_cls.__module__, checker_cls.__qualname__)

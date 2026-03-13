@@ -73,7 +73,16 @@ class CheckRunner:
         else:
             print("No notices", file=file)
 
-        for notice in self.notices:
+        for notice in self._ordered_notices(self.notices):
             notice.report(file=file)
 
         print(file=file)  # new line
+
+    def _ordered_notices(self, notices):
+        return sorted(notices, key=self._notice_sort_key)
+
+    def _notice_sort_key(self, notice):
+        return (self._is_repository_report(notice),)
+
+    def _is_repository_report(self, report):
+        return any(str(ctx).startswith("Repository:") for ctx in report.context)
