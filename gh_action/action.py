@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from urllib.parse import unquote, urlparse
 import zipfile
 
 
@@ -132,40 +133,68 @@ def main(argv: list[str] | None = None) -> None:
         wsdir.mkdir(parents=True, exist_ok=True)
 
         for pkg in pkgs:
+            regular_wsfile = wsdir / f"{pkg}.json"
             with console.group(f"Crawling: {pkg}"):
-                wsfile = wsdir / f"{pkg}.json"
-                console.write(f"Workspace file is {wsfile}")
-                crawl = run(
-                    "uv",
-                    "run",
-                    "-m",
-                    "scripts.crawl",
-                    "--registry",
-                    str(head_reg),
-                    "--workspace",
-                    str(wsfile),
-                    "--name",
+                console.write(f"Workspace file is {regular_wsfile}")
+                if not crawl_package(
+                    crawler_repo,
+                    head_reg,
+                    regular_wsfile,
                     pkg,
-                    cwd=crawler_repo,
-                    check=False,
-                )
-                if crawl.returncode != 0 or not wsfile.exists() or wsfile.stat().st_size == 0:
+                ):
                     console.write(f"::error ::! Crawl failed for {pkg}")
                     failures += 1
                     continue
 
+            package_definition = head_packages.get(pkg)
             review_repo_args: list[str] = []
             tags_mode, repo_url = inspect_registry_package(
-                head_packages.get(pkg),
+                package_definition,
                 pkg,
                 console,
             )
             if tags_mode and repo_url:
                 review_repo_args = ["--repo", repo_url]
 
-            release = parse_workspace_release(wsfile, pkg)
+            review_wsfile = regular_wsfile
+            if tags_mode:
+                tags_reg = tmpdir / "tags_mode_registry" / f"{pkg}.json"
+                with console.group(f"Preparing tags-mode branch crawl: {pkg}"):
+                    console.write(f"Temporary registry is {tags_reg}")
+                    if not write_tags_mode_registry(
+                        package_definition,
+                        pkg,
+                        tags_reg,
+                        console,
+                    ):
+                        failures += 1
+                        continue
+
+                tags_wsfile = wsdir / f"{pkg}.tags-mode.json"
+                with console.group(f"Crawling default branch tip: {pkg}"):
+                    console.write(f"Workspace file is {tags_wsfile}")
+                    if not crawl_package(
+                        crawler_repo,
+                        tags_reg,
+                        tags_wsfile,
+                        pkg,
+                    ):
+                        console.write(
+                            f"::error ::! Tags-mode branch crawl failed for {pkg}"
+                        )
+                        failures += 1
+                        continue
+                review_wsfile = tags_wsfile
+
+            release = parse_workspace_release(review_wsfile, pkg)
             if release is None:
-                console.write(f"::error  ::! No releases found for {pkg}")
+                if tags_mode:
+                    console.write(
+                        f"::error  ::! No releases emitted from tags-mode "
+                        f"branch crawl for {pkg}"
+                    )
+                else:
+                    console.write(f"::error  ::! No releases found for {pkg}")
                 failures += 1
                 continue
 
@@ -182,6 +211,15 @@ def main(argv: list[str] | None = None) -> None:
                     f"(url: {url}); using r1"
                 )
                 ver = "r1"
+
+            display_ver = ver
+            if tags_mode:
+                display_ver = format_tags_mode_review_version(
+                    version=ver,
+                    release_url=url,
+                    repo_url=repo_url,
+                    console=console,
+                )
 
             safe_ver = re.sub(r"[^A-Za-z0-9._-]", "_", ver)
             workdir = tmpdir / "review" / pkg / safe_ver
@@ -224,7 +262,7 @@ def main(argv: list[str] | None = None) -> None:
                 emit_review_annotations(raw_review_out, console)
                 raw = raw_review_out.read_text(encoding="utf-8", errors="replace")
                 with review_md.open("a", encoding="utf-8") as f:
-                    f.write(f"## Review for {pkg} {ver}\n\n")
+                    f.write(f"## Review for {pkg} {display_ver}\n\n")
                     f.write("```text\n")
                     f.write(raw)
                     if not raw.endswith("\n"):
@@ -287,6 +325,196 @@ def parse_workspace_release(workspace: Path, package_name: str) -> dict[str, str
         "url": str(newest.get("url") or ""),
         "version": str(newest.get("version") or ""),
     }
+
+
+def crawl_package(
+    crawler_repo: Path,
+    registry_file: Path,
+    workspace_file: Path,
+    package_name: str,
+) -> bool:
+    crawl = run(
+        "uv",
+        "run",
+        "-m",
+        "scripts.crawl",
+        "--registry",
+        str(registry_file),
+        "--workspace",
+        str(workspace_file),
+        "--name",
+        package_name,
+        cwd=crawler_repo,
+        check=False,
+    )
+    return (
+        crawl.returncode == 0
+        and workspace_file.exists()
+        and workspace_file.stat().st_size > 0
+    )
+
+
+def write_tags_mode_registry(
+    package_definition: dict[str, object] | None,
+    package_name: str,
+    output_file: Path,
+    console: Console,
+) -> bool:
+    if package_definition is None:
+        console.write(
+            f"::error ::Unable to rewrite tags-mode registry for {package_name}: "
+            "package metadata is missing."
+        )
+        return False
+
+    rewritten_package = dict(package_definition)
+    rewritten_package.pop("releases", None)
+
+    rewritten_release: dict[str, object] = {"branch": True}
+    details = rewritten_package.get("details")
+    if not (isinstance(details, str) and details):
+        if inferred_base := infer_release_base(package_definition):
+            rewritten_release["base"] = inferred_base
+        else:
+            console.write(
+                f"::warning ::Package {package_name} has no details/base metadata; "
+                "tags-mode branch crawl may fail."
+            )
+
+    rewritten_package["releases"] = [rewritten_release]
+
+    source = rewritten_package.get("source")
+    repositories = [source] if isinstance(source, str) and source else []
+
+    registry_data = {
+        "repositories": repositories,
+        "packages": [rewritten_package],
+        "libraries": [],
+    }
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(
+        json.dumps(registry_data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return True
+
+
+def infer_release_base(package_definition: dict[str, object]) -> str:
+    releases = package_definition.get("releases", [])
+    if not isinstance(releases, list):
+        return ""
+
+    for release in releases:
+        if not isinstance(release, dict):
+            continue
+        base = release.get("base")
+        if isinstance(base, str) and base:
+            return base
+
+    return ""
+
+
+def format_tags_mode_review_version(
+    version: str,
+    release_url: str,
+    repo_url: str,
+    console: Console,
+) -> str:
+    branch_name = infer_branch_name_from_release_url(release_url)
+    if not branch_name:
+        return version
+
+    short_hash = ""
+    if repo_url:
+        short_hash = resolve_branch_short_hash(repo_url, branch_name)
+        if not short_hash:
+            console.write(
+                f"::warning ::Could not resolve commit hash for branch "
+                f"{branch_name!r} from {repo_url}."
+            )
+
+    if short_hash:
+        return f"{branch_name}-{short_hash}-{version}"
+
+    return f"{branch_name}-{version}"
+
+
+def infer_branch_name_from_release_url(release_url: str) -> str:
+    parsed = urlparse(release_url)
+    path = parsed.path
+
+    if parsed.netloc == "codeload.github.com" and "/zip/" in path:
+        return unquote(path.split("/zip/", 1)[1].lstrip("/"))
+
+    if "/-/tree/" in path:
+        return unquote(path.split("/-/tree/", 1)[1].lstrip("/"))
+
+    if "/get/" in path and path.endswith(".zip"):
+        branch = path.split("/get/", 1)[1]
+        return unquote(branch[:-4])
+
+    if "/archive/" in path and path.endswith(".zip"):
+        branch = path.split("/archive/", 1)[1]
+        return unquote(branch[:-4])
+
+    return ""
+
+
+def resolve_branch_short_hash(repo_url: str, branch_name: str) -> str:
+    if not command_exists("git"):
+        return ""
+
+    ref = f"refs/heads/{branch_name}"
+    ls_remote = run(
+        "git",
+        "ls-remote",
+        "--heads",
+        repo_url,
+        ref,
+        capture_output=True,
+        check=False,
+    )
+    sha = parse_ls_remote_sha(ls_remote.stdout, ref)
+    if sha:
+        return sha[:7]
+
+    fallback = run(
+        "git",
+        "ls-remote",
+        "--heads",
+        repo_url,
+        branch_name,
+        capture_output=True,
+        check=False,
+    )
+    sha = parse_ls_remote_sha(fallback.stdout, ref)
+    if sha:
+        return sha[:7]
+
+    return ""
+
+
+def parse_ls_remote_sha(output: str, wanted_ref: str) -> str:
+    first_sha = ""
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+
+        sha, ref = parts[0], parts[1]
+        if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
+            continue
+
+        if ref == wanted_ref:
+            return sha
+        if not first_sha:
+            first_sha = sha
+
+    return first_sha
 
 
 def newest_workspace_release(releases: list[dict]) -> dict | None:
@@ -379,7 +607,8 @@ def inspect_registry_package(
         )
         return False, ""
 
-    repo = package.get("details", "")
+    raw_repo = package.get("details", "")
+    repo = raw_repo if isinstance(raw_repo, str) else ""
     tags_mode = is_tags_mode(package)
     if tags_mode and not repo:
         console.write(
@@ -399,8 +628,13 @@ def load_registry_packages(registry_file: Path) -> dict[str, dict[str, object]]:
 
 def is_tags_mode(package_definition: dict[str, object]) -> bool:
     releases = package_definition.get("releases", [])
+    if not isinstance(releases, list) or not releases:
+        return True
+
     for release in releases:
-        if any(key in release for key in ("asset", "url", "branch")):
+        if isinstance(release, dict) and any(
+            key in release for key in ("asset", "url", "branch")
+        ):
             return False
 
     return True
