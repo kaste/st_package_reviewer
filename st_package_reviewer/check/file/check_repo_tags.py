@@ -145,7 +145,9 @@ class CheckRepoTags(FileChecker):
 
             branch_name, tip_tag_version, commits_behind = tip_status
             if tip_tag_version:
-                self.notice("Tip of {} is tagged with {}.".format(branch_name, tip_tag_version))
+                self.notice(
+                    "Tip of {} is tagged with {}. ✅".format(branch_name, tip_tag_version)
+                )
                 return
 
             if commits_behind is not None:

@@ -32,7 +32,7 @@ def test_repo_tags_warns_for_only_prereleases(tmp_path):
     assert not checker.failures
     assert [warning.message for warning in checker.warnings] == ["Only found pre-release tags."]
     assert any(
-        notice.message.endswith("is tagged with 1.0.0-beta.1.")
+        notice.message.endswith("is tagged with 1.0.0-beta.1. ✅")
         for notice in checker.notices
     )
 
@@ -48,7 +48,7 @@ def test_repo_tags_passes_with_final_semver(tmp_path):
     assert not checker.failures
     assert not checker.warnings
     assert any(
-        notice.message.endswith("is tagged with 1.0.0.")
+        notice.message.endswith("is tagged with 1.0.0. ✅")
         for notice in checker.notices
     )
 
