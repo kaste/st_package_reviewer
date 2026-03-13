@@ -222,7 +222,14 @@ def main(argv: list[str] | None = None) -> None:
                     )
 
                 emit_review_annotations(raw_review_out, console)
-                append_package_review_to_review_md(review_md, pkg, ver, raw_review_out)
+                raw = raw_review_out.read_text(encoding="utf-8", errors="replace")
+                with review_md.open("a", encoding="utf-8") as f:
+                    f.write(f"## Review for {pkg} {ver}\n\n")
+                    f.write("```text\n")
+                    f.write(raw)
+                    if not raw.endswith("\n"):
+                        f.write("\n")
+                    f.write("```\n\n")
 
                 if review.returncode != 0:
                     console.write(f"  ! Review failed for {pkg}@{ver}")
@@ -532,22 +539,6 @@ def command_exists(name: str) -> bool:
 def init_review_md(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("# Package Review\n\n", encoding="utf-8")
-
-
-def append_package_review_to_review_md(
-    path: Path,
-    package: str,
-    version: str,
-    raw_review: Path,
-) -> None:
-    raw = raw_review.read_text(encoding="utf-8", errors="replace")
-    with path.open("a", encoding="utf-8") as f:
-        f.write(f"## Review for {package} {version}\n\n")
-        f.write("```text\n")
-        f.write(raw)
-        if not raw.endswith("\n"):
-            f.write("\n")
-        f.write("```\n\n")
 
 
 def setup_thecrawl(src: str, target: Path, console: Console) -> Path:
