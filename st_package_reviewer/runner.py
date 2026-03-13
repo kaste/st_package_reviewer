@@ -48,6 +48,16 @@ class CheckRunner:
 
         prefix = "" if compact else "Reporting "
 
+        if self.notices:
+            print("{}{} notices:".format(prefix, len(self.notices)), file=file)
+        else:
+            print("No notices", file=file)
+
+        for notice in self._ordered_notices(self.notices):
+            notice.report(file=file)
+
+        print(file=file)  # new line
+
         if self.failures:
             print("{}{} failures:".format(prefix, len(self.failures)), file=file)
         else:
@@ -65,16 +75,6 @@ class CheckRunner:
 
         for warning in self.warnings:
             warning.report(file=file)
-
-        print(file=file)  # new line
-
-        if self.notices:
-            print("{}{} notices:".format(prefix, len(self.notices)), file=file)
-        else:
-            print("No notices", file=file)
-
-        for notice in self._ordered_notices(self.notices):
-            notice.report(file=file)
 
         print(file=file)  # new line
 
