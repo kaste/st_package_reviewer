@@ -90,9 +90,13 @@ This second workflow:
 
 ## Run locally
 
-E.g.
+Run the Python implementation with `uv`:
 
 ```bash
-gh_action/action.sh --pr https://github.com/sublimehq/package_control_channel/pull/9269
+uv run python -u gh_action/action.py --pr https://github.com/sublimehq/package_control_channel/pull/9269
 ```
+
+Note: use `-u` (or `PYTHONUNBUFFERED=1`) for stable, immediate log flushing.
+
+`gh_action/action.sh` is kept as a legacy reference only.
 

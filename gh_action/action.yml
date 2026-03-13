@@ -54,7 +54,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        "${{ github.action_path }}/action.sh" --pr "${{ inputs.pr }}" --file "${{ inputs.file }}" --thecrawl "${{ inputs.thecrawl }}"
+        uv run python -u "${{ github.action_path }}/action.py" --pr "${{ inputs.pr }}" --file "${{ inputs.file }}" --thecrawl "${{ inputs.thecrawl }}"
 
     - name: Write PR metadata
       if: always() && inputs.phase == 'review'
