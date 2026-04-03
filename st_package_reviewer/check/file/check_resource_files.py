@@ -86,8 +86,8 @@ class CheckSettingsMenuEntry(FileChecker):
         if not settings_files:
             return
 
-        menu_path = self.sub_path("Main.sublime-menu")
-        if not menu_path.is_file():
+        menu_path = _find_main_menu_path(self)
+        if menu_path is None:
             self.warn("Package defines '.sublime-settings' files but is missing "
                       "'Main.sublime-menu'")
             return
@@ -150,8 +150,8 @@ class CheckKeymapMenuEntry(FileChecker):
         if not keymap_files:
             return
 
-        menu_path = self.sub_path("Main.sublime-menu")
-        if not menu_path.is_file():
+        menu_path = _find_main_menu_path(self)
+        if menu_path is None:
             self.warn("Package defines '.sublime-keymap' files but is missing "
                       "'Main.sublime-menu'")
             return
@@ -247,6 +247,18 @@ def _analyze_settings_commands(entries):
             custom_commands.add(command)
 
     return valid_entries, missing_command_count, sorted(custom_commands)
+
+
+def _find_main_menu_path(file_checker):
+    root_menu_path = file_checker.sub_path("Main.sublime-menu")
+    menu_paths = sorted(
+        file_checker.glob("**/Main.sublime-menu"),
+        key=lambda path: (path != root_menu_path, str(path)),
+    )
+    if menu_paths:
+        return menu_paths[0]
+
+    return None
 
 
 def _expected_keymap_base_files(package_name, keymap_files, rel_path_func):
