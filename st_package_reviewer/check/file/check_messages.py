@@ -19,7 +19,7 @@ class CheckMessages(FileChecker):
             return
 
         with self.file_context(msg_path):
-            with msg_path.open() as f:
+            with msg_path.open(encoding='utf-8') as f:
                 try:
                     data = json.load(f)
                 except ValueError as e:
