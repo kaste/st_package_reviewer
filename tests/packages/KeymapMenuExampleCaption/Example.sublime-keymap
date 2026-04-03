@@ -1,0 +1,6 @@
+[
+    {
+        "keys": ["ctrl+alt+shift+z"],
+        "command": "noop"
+    }
+]

@@ -1,4 +1,5 @@
 import plistlib
+import re
 import xml.etree.ElementTree as ET
 from xml.parsers.expat import ExpatError
 
@@ -28,15 +29,16 @@ class CheckJsoncFiles(FileChecker):
         for file_path in self.globs(*jsonc_file_globs):
             with self.file_context(file_path):
                 with file_path.open(encoding='utf-8') as f:
+                    source = f.read()
                     try:
-                        data = jsonc.loads(f.read())
+                        data = jsonc.loads(source)
                     except ValueError as e:
                         self.fail("Invalid JSON (with comments)", exception=e)
                         continue
 
-                self._verify_jsonc_collection_shape(file_path, data)
+                self._verify_jsonc_collection_shape(file_path, data, source)
 
-    def _verify_jsonc_collection_shape(self, file_path, data):
+    def _verify_jsonc_collection_shape(self, file_path, data, source):
         if file_path.suffix not in {".sublime-menu", ".sublime-keymap", ".sublime-commands"}:
             return
 
@@ -45,8 +47,43 @@ class CheckJsoncFiles(FileChecker):
                       "must be a list of dicts")
             return
 
-        if not data:
-            self.fail("Remove this file, it doesn't define anything")
+        if data:
+            return
+
+        if _contains_commented_example(file_path.suffix, source):
+            self.notice(_example_file_notice(file_path.suffix))
+            return
+
+        self.fail("Remove this file, it doesn't define anything")
+
+
+def _contains_commented_example(suffix, source):
+    comment_fragments = re.findall(r"//.*?$|/\*.*?\*/", source, flags=re.MULTILINE | re.DOTALL)
+    if not comment_fragments:
+        return False
+
+    text = "\n".join(comment_fragments).lower()
+    if "{" in text and "}" in text:
+        return True
+
+    hints_by_suffix = {
+        ".sublime-keymap": {"keys", "command"},
+        ".sublime-commands": {"caption", "command"},
+        ".sublime-menu": {"caption", "command"},
+    }
+    hints = hints_by_suffix.get(suffix, set())
+    return any(hint in text for hint in hints)
+
+
+def _example_file_notice(suffix):
+    if suffix == ".sublime-keymap":
+        return (
+            "This file only contains commented examples. Consider defining "
+            "'Example.sublime-keymap' and linking it from "
+            "'Main.sublime-menu'."
+        )
+
+    return "This file only contains commented examples."
 
 
 class CheckPlistFiles(FileChecker):

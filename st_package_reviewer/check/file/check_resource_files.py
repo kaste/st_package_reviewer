@@ -104,7 +104,7 @@ class CheckSettingsMenuEntry(FileChecker):
                 return
 
             expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(self.package_name)
-            settings_entries = _find_edit_settings_entries(package_node, caption="Settings")
+            settings_entries = _find_menu_entries(package_node, caption="Settings")
             if not settings_entries:
                 self.warn("'Main.sublime-menu' has no 'Settings' menu entry for {!r}"
                           .format(self.package_name))
@@ -167,8 +167,10 @@ class CheckKeymapMenuEntry(FileChecker):
                           "bindings of {!r}".format(self.package_name))
                 return
 
-            key_binding_entries = _find_edit_settings_entries(package_node,
-                                                              caption="Key Bindings")
+            key_binding_entries = _find_menu_entries(package_node,
+                                                     caption="Key Bindings",
+                                                     loose=True)
+
             if not key_binding_entries:
                 self.warn("'Main.sublime-menu' has no 'Key Bindings' menu entry for {!r}"
                           .format(self.package_name))
@@ -221,13 +223,25 @@ def _find_package_settings_node(menu_data, package_name):
     return None
 
 
-def _find_edit_settings_entries(package_node, caption):
+def _find_menu_entries(package_node, caption, loose=False):
     entries = []
+    target = caption.casefold()
+
     for node in _iter_menu_nodes(package_node.get('children', ())):
         if not isinstance(node, dict):
             continue
-        if node.get('caption') == caption:
-            entries.append(node)
+
+        node_caption = node.get('caption')
+        if not isinstance(node_caption, str):
+            continue
+
+        if loose:
+            if target in node_caption.casefold():
+                entries.append(node)
+        else:
+            if node_caption == caption:
+                entries.append(node)
+
     return entries
 
 

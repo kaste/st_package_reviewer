@@ -1,0 +1,4 @@
+[
+    // Copy this to your keybinding file to enable the shortcut.
+    // { "keys": ["alt+shift+c"], "command": "conv_calculate" },
+]
