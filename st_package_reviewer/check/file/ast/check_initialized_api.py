@@ -31,8 +31,18 @@ class CheckInitializedApiUsage(AstChecker):
     - functions that are called from the module scope
     """
 
-    def __init__(self, base_path, package_name=None, repo=None):
-        super().__init__(base_path, package_name=package_name, repo=repo)
+    API_IMPORT_READY_BUILD = 4171
+
+    def check(self):
+        if self.st_build >= self.API_IMPORT_READY_BUILD:
+            return
+
+        self.notice(
+            "Consider requiring Sublime Text build >= 4171, where "
+            "the API is available at import time and these "
+            "initialization restrictions do not apply."
+        )
+        self.visit_all_pyfiles()
 
     def visit_Module(self, node):
         self._module_calls = set()

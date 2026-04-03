@@ -13,8 +13,13 @@ class AstChecker(FileChecker, ast.NodeVisitor):
 
     _ast_cache = {}
 
-    def __init__(self, base_path, package_name=None, repo=None):
-        super().__init__(base_path, package_name=package_name, repo=repo)
+    def __init__(self, base_path, package_name=None, repo=None, st_build=4180):
+        super().__init__(
+            base_path,
+            package_name=package_name,
+            repo=repo,
+            st_build=st_build,
+        )
 
     def check(self):
         self.visit_all_pyfiles()

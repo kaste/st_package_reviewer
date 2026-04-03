@@ -35,8 +35,8 @@ $ pip install st-package-reviewer
 ```
 usage: st_package_reviewer [-h] [--version] [--clip] [--repo-only]
                            [--package-name PACKAGE_NAME] [--repo [REPO]]
-                           [-w] [--compact] [-v] [--debug]
-                           [path_or_URL [path_or_URL ...]]
+                           [--st-build ST_BUILD] [-w] [--compact] [-v]
+                           [--debug] [path_or_URL [path_or_URL ...]]
 
 Check a Sublime Text package for common errors.
 
@@ -54,6 +54,8 @@ optional arguments:
   --repo [REPO]         Enable repository checks for package paths.
                         Optional value: git repo path or URL.
                         Default: current directory (.).
+  --st-build ST_BUILD   Minimum required Sublime Text build.
+                        Default: 4180.
   -w, --fail-on-warnings
                         Return a non-zero exit code for warnings as well.
   --compact             Reduce output verbosity.
@@ -110,6 +112,8 @@ This repo uses [uv](https://github.com/astral-sh/uv) and targets Python 3.13.
     `uv run st_package_reviewer --repo /path/to/package`
   - Enable repo tag checks for an extracted archive (which usually has no `.git`) using a remote URL:
     `uv run st_package_reviewer --repo https://github.com/owner/repo /path/to/extracted/archive`
+  - Review for older Sublime builds explicitly (legacy API-init constraints):
+    `uv run st_package_reviewer --st-build 4169 /path/to/package`
 
 ## Publishing
 

@@ -77,6 +77,9 @@ def main(args=None):
     parser.add_argument("--repo", nargs='?', const='.',
                         help="Enable repository checks for package paths. Optional value: "
                              "git repo path or URL. Default: current directory (.).")
+    parser.add_argument("--st-build", type=int, default=4180,
+                        help="Minimum required Sublime Text build. "
+                             "Default: 4180.")
     parser.add_argument("-w", "--fail-on-warnings", action='store_true',
                         help="Return a non-zero exit code for warnings as well.")
     parser.add_argument("--compact", action='store_true',
@@ -164,6 +167,7 @@ def main(args=None):
             file_check_kwargs['package_name'] = args.package_name
         if args.repo is not None:
             file_check_kwargs['repo'] = args.repo
+        file_check_kwargs['st_build'] = args.st_build
 
         if not _run_checks(file_c.get_checkers(), out, args=[path],
                            kwargs=file_check_kwargs,
