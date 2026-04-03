@@ -1,5 +1,6 @@
 import functools
 import ast
+import tokenize
 from pathlib import Path
 from ....check.file import FileChecker
 from ....check import find_all
@@ -32,15 +33,20 @@ class AstChecker(FileChecker, ast.NodeVisitor):
         except KeyError:
             self._ast_cache[path] = None
 
-        with path.open("r") as f:
-            try:
-                the_ast = ast.parse(f.read(), path)
-            except SyntaxError as e:
-                with self.context("Line: {}".format(e.lineno)):
-                    self.fail("Unable to parse Python file", exception=e)
-            else:
-                self._ast_cache[path] = the_ast
-                return the_ast
+        try:
+            # tokenize.open() honors PEP 263 encoding cookies and defaults to UTF-8,
+            # avoiding locale-dependent decoding behavior on Windows.
+            with tokenize.open(str(path)) as f:
+                source = f.read()
+            the_ast = ast.parse(source, str(path))
+        except SyntaxError as e:
+            with self.context("Line: {}".format(e.lineno)):
+                self.fail("Unable to parse Python file", exception=e)
+        except UnicodeDecodeError as e:
+            self.fail("Unable to decode Python file", exception=e)
+        else:
+            self._ast_cache[path] = the_ast
+            return the_ast
 
     def node_context(self, node):
         return self.context("Line: {}, Column: {}".format(node.lineno, node.col_offset + 1))
