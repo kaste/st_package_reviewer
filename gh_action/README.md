@@ -89,7 +89,11 @@ This second workflow:
   - In tag mode, the action also passes `--repo <effective-base-url>` to `st_package_reviewer`
     to enable repository tag checks (release archives usually do not contain a `.git` directory).
   - Reads the selected workspace JSON and picks the newest emitted release (by date), then downloads that zip file.
-  - Unpacks each zip and runs `uv run st_package_reviewer <extracted_dir>`.
+  - Resolves the package's required `sublime_text` build from registry metadata
+    (max parsed minimum across package/release selectors, defaulting to 4180 when
+    unspecified; `*` is treated as >=4000).
+  - Unpacks each zip and runs
+    `uv run st_package_reviewer --st-build <resolved-build> <extracted_dir>`.
   - Aggregates failures and fails the job if any occurred.
 
 ## Run locally

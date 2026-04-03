@@ -16,6 +16,10 @@ from urllib.parse import unquote, urlparse
 import zipfile
 
 
+DEFAULT_REVIEW_ST_BUILD = 4180
+STAR_SELECTOR_MIN_BUILD = 4000
+
+
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="action.py",
@@ -154,6 +158,12 @@ def main(argv: list[str] | None = None) -> None:
                     console,
                 )
 
+            package_definition = head_packages.get(pkg)
+            required_st_build = resolve_package_required_st_build(package_definition)
+            console.write(
+                f"Resolved required ST build for review: >= {required_st_build}"
+            )
+
             review_repo_args: list[str] = []
             review_wsfile = regular_wsfile
             if tags_mode and repo_url:
@@ -163,7 +173,6 @@ def main(argv: list[str] | None = None) -> None:
                 tags_reg = tmpdir / "tags_mode_registry" / f"{pkg}.json"
                 with console.group(f"Preparing tags-mode branch crawl: {pkg}"):
                     console.write(f"Temporary registry is {tags_reg}")
-                    package_definition = head_packages.get(pkg)
                     if not write_tags_mode_registry(
                         package_definition,
                         pkg,
@@ -255,6 +264,8 @@ def main(argv: list[str] | None = None) -> None:
                         "--compact",
                         "--package-name",
                         pkg,
+                        "--st-build",
+                        str(required_st_build),
                         *review_repo_args,
                         str(topdir),
                         cwd=root_dir,
@@ -329,6 +340,74 @@ def parse_workspace_release(workspace: Path, package_name: str) -> dict[str, str
         "url": str(newest.get("url") or ""),
         "version": str(newest.get("version") or ""),
     }
+
+
+def resolve_package_required_st_build(package_definition: dict[str, object] | None) -> int:
+    selectors = package_sublime_text_selectors(package_definition)
+    if not selectors:
+        # No explicit requirement in registry metadata: assume modern-only.
+        return DEFAULT_REVIEW_ST_BUILD
+
+    # Selectors are explicit policy. If they don't define a lower bound
+    # (e.g. "<=4000"), the parsed minimum remains 0 by design.
+    parsed_builds = [parse_sublime_text_min(selector) for selector in selectors]
+    return max(parsed_builds, default=0)
+
+
+def package_sublime_text_selectors(
+    package_definition: dict[str, object] | None,
+) -> list[str]:
+    if not isinstance(package_definition, dict):
+        return []
+
+    selectors: list[str] = []
+
+    releases = package_definition.get("releases")
+    if isinstance(releases, list):
+        for release in releases:
+            if not isinstance(release, dict):
+                continue
+            release_selector = release.get("sublime_text")
+            if isinstance(release_selector, str):
+                selectors.append(release_selector)
+
+    return selectors
+
+
+def parse_sublime_text_min(selector: object) -> int:
+    if not isinstance(selector, str):
+        return 0
+
+    s = re.sub(r"\s+", "", selector)
+    if not s or s == "*":
+        return STAR_SELECTOR_MIN_BUILD
+
+    range_idx = s.find("-")
+    if range_idx != -1:
+        return parse_int_prefix(s[:range_idx]) or 0
+
+    if s.startswith("<="):
+        return 0
+    if s.startswith("<"):
+        return 0
+    if s.startswith(">="):
+        return parse_int_prefix(s[2:]) or 0
+    if s.startswith(">"):
+        value = parse_int_prefix(s[1:])
+        return value + 1 if value is not None else 0
+
+    return parse_int_prefix(s) or 0
+
+
+def parse_int_prefix(value: str) -> int | None:
+    match = re.match(r"^\d+", value)
+    if not match:
+        return None
+
+    try:
+        return int(match.group(0))
+    except ValueError:
+        return None
 
 
 def check_pkg_crawl_mode(
