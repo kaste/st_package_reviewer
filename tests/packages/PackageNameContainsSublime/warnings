@@ -1,0 +1,1 @@
+- Package name 'SublimeJJ' contains 'sublime'. Avoid using 'sublime' in package names; it is redundant in this ecosystem and hurts searchability.
