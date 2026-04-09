@@ -2,8 +2,6 @@
 
 [![Build Status](https://travis-ci.org/packagecontrol/st_package_reviewer.svg?branch=master)](https://travis-ci.org/packagecontrol/st_package_reviewer)
 [![Coverage Status](https://coveralls.io/repos/github/packagecontrol/st_package_reviewer/badge.svg?branch=master)](https://coveralls.io/github/packagecontrol/st_package_reviewer?branch=master)
-[![PyPI](https://img.shields.io/pypi/v/st-package-reviewer.svg)](https://pypi.python.org/pypi/st-package-reviewer)
-[![Python Versions](https://img.shields.io/pypi/pyversions/st-package-reviewer.svg)](https://pypi.python.org/pypi/st-package-reviewer)
 
 A tool to review packages for [Sublime Text][]
 (and its package manager [Package Control][]).
@@ -18,15 +16,56 @@ reported by the tool,
 
 ## Usage as a GitHub Action
 
-See gh_action/README.md for how to run this as a composite action that runs on channel/registry PRs.
+- Channel/registry PRs: see [gh_action/README.md](gh_action/README.md)
+- Package/plugin repositories: see [gh_action_package/README.md](gh_action_package/README.md)
+
+### Alt Recipe: run on a package/plugin repository
+
+If you can't or don't want to use the github action you can also use a workflow like this:
+
+```yaml
+name: Package Review
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+jobs:
+  package-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Run st_package_reviewer (official fork)
+        run: uvx --from git+https://github.com/kaste/st_package_reviewer.git st_package_reviewer --repo=. .
+        # Optional: pin and/or fail on warnings too
+        # run: uvx --from git+https://github.com/kaste/st_package_reviewer.git@<TAG_OR_SHA> st_package_reviewer --repo=. --fail-on-warnings .
+```
+
+This runs package checks on the checked-out repository (`.`) and enables repository checks via `--repo=.`.
 
 
 ## Installation
 
 Requires **Python 3.13**.
 
+This fork is currently **not published on PyPI**.
+Install from GitHub instead:
+
 ```bash
-$ pip install st-package-reviewer
+# uv (tool install)
+$ uv tool install --from git+https://github.com/kaste/st_package_reviewer.git st_package_reviewer
+# optionally pin:
+$ uv tool install --from git+https://github.com/kaste/st_package_reviewer.git@<TAG_OR_SHA> st_package_reviewer
+
+# pip
+$ pip install git+https://github.com/kaste/st_package_reviewer.git
+# optionally pin:
+$ pip install git+https://github.com/kaste/st_package_reviewer.git@<TAG_OR_SHA>
 ```
 
 
@@ -115,7 +154,8 @@ This repo uses [uv](https://github.com/astral-sh/uv) and targets Python 3.13.
   - Review for older Sublime builds explicitly (legacy API-init constraints):
     `uv run st_package_reviewer --st-build 4169 /path/to/package`
 
-## Publishing
+## Releases
 
-  - Just create a tag named `vX.Y.Z` (e.g., `v0.4.0`)
-  - On tag push, `.github/workflows/release.yml` builds and uploads to PyPI
+- Create a tag named `vX.Y.Z` (for example `v0.4.0`) for versioned releases.
+- This fork is currently not published on PyPI.
+- For automation, prefer pinning GitHub Action usage to a tag or commit SHA.

@@ -66,8 +66,12 @@ This second workflow:
 - Downloads the `review-md` artifact produced by the first workflow (containing `review.md` and `review_pr_number.txt`).
 - Posts a new PR comment with the contents of `review.md`.
 
+For package/plugin repositories (no channel/registry diff), use the dedicated action:
+[../gh_action_package/README.md](../gh_action_package/README.md)
+
 ## Notes
 
+- Right now, the maintained fork is `kaste/st_package_reviewer`; pin `@<PINNED_REF>` to a stable tag or commit SHA.
 - The action ensures `uv` is available via `astral-sh/setup-uv`. GitHub’s hosted runners include `gh` (GitHub CLI) by default.
 - If `thecrawl` is not provided, the action clones `https://github.com/packagecontrol/thecrawl`.
 - Network access is required to fetch raw files, zipballs, and the GitHub API. For GitHub zipball downloads, the action falls back to `gh api` if `curl` fails.
