@@ -1,0 +1,4 @@
+- Command palette entry for editing settings should start with 'Preferences: BoxDrawing'. Found: BoxDrawing: Edit BoxDrawing Settings
+    File: Default.sublime-commands
+- Command palette entry for editing key bindings should start with 'Preferences: BoxDrawing'. Found: BoxDrawing: Edit BoxDrawing Key Bindings
+    File: Default.sublime-commands

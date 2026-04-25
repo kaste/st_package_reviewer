@@ -1,0 +1,4 @@
+- Command palette entry for editing settings should contain 'Settings'. Found: Preferences: BoxDrawing Options
+    File: Default.sublime-commands
+- Command palette entry for editing key bindings should contain 'Key Bindings'. Found: Preferences: BoxDrawing Shortcuts
+    File: Default.sublime-commands

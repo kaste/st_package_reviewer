@@ -155,6 +155,48 @@ class CheckSettingsMenuEntry(FileChecker):
                             "A minimal default is \"{}\".")
 
 
+class CheckCommandPaletteEditSettingsCaption(FileChecker):
+
+    def check(self):
+        if not self.package_name:
+            return
+
+        for commands_path in self.glob("**/*.sublime-commands"):
+            with self.file_context(commands_path):
+                commands = _load_menu_file(commands_path)
+                if not isinstance(commands, list):
+                    continue
+
+                for entry in commands:
+                    self._check_entry(entry)
+
+    def _check_entry(self, entry):
+        if not isinstance(entry, dict) or entry.get('command') != 'edit_settings':
+            return
+
+        caption = entry.get('caption')
+        if not isinstance(caption, str):
+            return
+
+        entry_kind = _edit_settings_entry_kind(entry)
+        if entry_kind is None:
+            return
+
+        required_text = "Key Bindings" if entry_kind == "key bindings" else "Settings"
+        required_prefix = "Preferences: {}".format(self.package_name)
+        if not caption.startswith(required_prefix):
+            self.warn(
+                "Command palette entry for editing {} should start with {!r}. "
+                "Found: {}".format(entry_kind, required_prefix, caption)
+            )
+
+        if required_text not in caption:
+            self.warn(
+                "Command palette entry for editing {} should contain {!r}. "
+                "Found: {}".format(entry_kind, required_text, caption)
+            )
+
+
 class CheckKeymapMenuEntry(FileChecker):
 
     def check(self):
@@ -273,6 +315,19 @@ class CheckKeymapMenuEntry(FileChecker):
         if user_file:
             message += " Found: {}".format(user_file)
         self.fail(message)
+
+
+def _edit_settings_entry_kind(entry):
+    args = entry.get('args')
+    if not isinstance(args, dict):
+        return None
+
+    resource = "{}\n{}".format(args.get('base_file', ''), args.get('user_file', ''))
+    if ".sublime-keymap" in resource:
+        return "key bindings"
+    if ".sublime-settings" in resource:
+        return "settings"
+    return None
 
 
 def _missing_base_file_warning(caption, expected_base_files, entries):

@@ -1,0 +1,33 @@
+[
+  {
+    "caption": "Preferences: BoxDrawing Settings",
+    "command": "edit_settings",
+    "args": {
+      "base_file": "${packages}/BoxDrawing/BoxDrawing.sublime-settings"
+    }
+  },
+  {
+    "caption": "Preferences: BoxDrawing Key Bindings",
+    "command": "edit_settings",
+    "args": {
+      "base_file": "${packages}/BoxDrawing/Default.sublime-keymap",
+      "user_file": "${packages}/User/Default (${platform}).sublime-keymap"
+    }
+  },
+  {
+    "caption": "Preferences: BoxDrawing Example Key Bindings",
+    "command": "edit_settings",
+    "args": {
+      "base_file": "${packages}/BoxDrawing/Example.sublime-keymap",
+      "user_file": "${packages}/User/Default (${platform}).sublime-keymap"
+    }
+  },
+  {
+    "caption": "Preferences: BoxDrawing Key Bindings (Example)",
+    "command": "edit_settings",
+    "args": {
+      "base_file": "${packages}/BoxDrawing/Example.sublime-keymap",
+      "user_file": "${packages}/User/Default (${platform}).sublime-keymap"
+    }
+  }
+]
