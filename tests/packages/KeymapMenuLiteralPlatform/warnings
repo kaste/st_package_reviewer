@@ -1,0 +1,2 @@
+- 'Main.sublime-menu' has a 'Key Bindings' entry with 'args.base_file' set to a platform-specific keymap. Use '${packages}/File Browser/Default (${platform}).sublime-keymap' instead.
+    File: Main.sublime-menu

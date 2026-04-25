@@ -1,0 +1,2 @@
+- 'Main.sublime-menu' has a 'Key Bindings' entry with 'args.base_file' set to ${packages}/File Browser/keymaps/Default (${platform}).sublime-keymap, but these platform keymap files are missing: keymaps/Default (OSX).sublime-keymap
+    File: Main.sublime-menu

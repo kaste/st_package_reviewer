@@ -1,10 +1,24 @@
 import logging
+from pathlib import PurePosixPath
+import re
 
 from . import FileChecker
 from ...lib import jsonc
 
 
 l = logging.getLogger(__name__)
+
+
+PLATFORM_KEYMAP_NAME = "Default (${platform}).sublime-keymap"
+PLATFORM_KEYMAP_FILENAMES = (
+    "Default (Linux).sublime-keymap",
+    "Default (OSX).sublime-keymap",
+    "Default (Windows).sublime-keymap",
+)
+SPECIFIC_PLATFORM_KEYMAP_RE = re.compile(
+    r"^Default \((?:Linux|OSX|Windows)\)\.sublime-keymap$"
+)
+USER_PLATFORM_KEYMAP = "${packages}/User/Default (${platform}).sublime-keymap"
 
 
 class CheckPluginsInRoot(FileChecker):
@@ -129,13 +143,11 @@ class CheckSettingsMenuEntry(FileChecker):
                 if entry.get('args', {}).get('base_file') == expected_base_file
             ]
             if not matching_entries:
-                found_base_files = sorted({
-                    entry.get('args', {}).get('base_file', '<missing>')
-                    for entry in settings_entries
-                })
-                self.warn("'Main.sublime-menu' has no 'Settings' entry with "
-                          "'args.base_file' set to {!r}. Found: {}"
-                          .format(expected_base_file, ", ".join(found_base_files)))
+                self.warn(_missing_base_file_warning(
+                    "Settings",
+                    [expected_base_file],
+                    settings_entries,
+                ))
                 return
 
             if all(not entry.get('args', {}).get('default') for entry in matching_entries):
@@ -190,23 +202,105 @@ class CheckKeymapMenuEntry(FileChecker):
             if not valid_entries:
                 return
 
-            expected_base_files = _expected_keymap_base_files(self.package_name, keymap_files,
-                                                              self.rel_path)
-            matching_entries = [
+            base_file_entries = [
                 entry for entry in valid_entries
-                if entry.get('args', {}).get('base_file') in expected_base_files
+                if entry.get('args', {}).get('base_file')
             ]
-            if matching_entries:
+            if not base_file_entries:
+                self.warn("'Main.sublime-menu' has a 'Key Bindings' entry "
+                          "without required 'args.base_file'.")
                 return
 
-            found_base_files = sorted({
-                entry.get('args', {}).get('base_file', '<missing>')
-                for entry in valid_entries
-            })
-            self.warn("'Main.sublime-menu' has no 'Key Bindings' entry with 'args.base_file' "
-                      "set to one of {}. Found: {}"
-                      .format(", ".join(repr(path) for path in expected_base_files),
-                              ", ".join(found_base_files)))
+            for entry in base_file_entries:
+                self._check_base_file_entry(entry)
+
+    def _check_base_file_entry(self, entry):
+        base_file = entry.get('args', {}).get('base_file')
+        rel_path = _package_resource_path(base_file, self.package_name)
+        if rel_path is None:
+            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry whose "
+                      "'args.base_file' does not reference this package: {}"
+                      .format(base_file))
+            return
+
+        if _is_platform_keymap(rel_path):
+            self._check_platform_keymap_base_file(base_file, rel_path)
+            return
+
+        if not self.sub_path(rel_path).is_file():
+            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry whose "
+                      "'args.base_file' does not exist: {}".format(base_file))
+            return
+
+        if _is_specific_platform_keymap(rel_path):
+            self.warn("'Main.sublime-menu' has a 'Key Bindings' entry with "
+                      "'args.base_file' set to a platform-specific keymap. "
+                      "Use {!r} instead."
+                      .format(_platform_keymap_resource(base_file)))
+
+        if _is_default_keymap(rel_path) and entry.get('command') == 'edit_settings':
+            self._check_default_keymap_user_file(entry)
+
+    def _check_platform_keymap_base_file(self, base_file, rel_path):
+        platform_keymap_paths = _platform_keymap_paths(rel_path)
+        existing_paths = [path for path in platform_keymap_paths if self.sub_path(path).is_file()]
+        missing_paths = [path for path in platform_keymap_paths if path not in existing_paths]
+
+        if not existing_paths:
+            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry whose "
+                      "'args.base_file' does not match any platform keymap files: {}"
+                      .format(base_file))
+            return
+
+        if missing_paths:
+            self.warn("'Main.sublime-menu' has a 'Key Bindings' entry with "
+                      "'args.base_file' set to {}, but these platform keymap "
+                      "files are missing: {}"
+                      .format(base_file, _format_rel_paths(missing_paths)))
+
+    def _check_default_keymap_user_file(self, entry):
+        user_file = entry.get('args', {}).get('user_file')
+        if user_file == USER_PLATFORM_KEYMAP:
+            return
+
+        message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
+                   "Default.sublime-keymap without 'args.user_file' set to "
+                   "{!r}.".format(USER_PLATFORM_KEYMAP))
+        if user_file:
+            message += " Found: {}".format(user_file)
+        self.fail(message)
+
+
+def _missing_base_file_warning(caption, expected_base_files, entries):
+    found_base_files, missing_count = _find_base_file_values(entries)
+    if not found_base_files:
+        return ("'Main.sublime-menu' has no '{}' entry with 'args.base_file' set."
+                .format(caption))
+
+    expected = _format_expected_base_files(expected_base_files)
+    message = ("'Main.sublime-menu' has no '{}' entry with 'args.base_file' {}. "
+               "Found: {}".format(caption, expected, ", ".join(found_base_files)))
+    if missing_count:
+        message += " (and {} without 'args.base_file')".format(missing_count)
+    return message
+
+
+def _find_base_file_values(entries):
+    found_base_files = set()
+    missing_count = 0
+    for entry in entries:
+        base_file = entry.get('args', {}).get('base_file')
+        if base_file:
+            found_base_files.add(base_file)
+        else:
+            missing_count += 1
+    return sorted(found_base_files), missing_count
+
+
+def _format_expected_base_files(expected_base_files):
+    if len(expected_base_files) == 1:
+        return "set to {!r}".format(expected_base_files[0])
+    return "set to one of {}".format(", ".join(repr(path) for path in expected_base_files))
 
 
 def _find_package_settings_node(menu_data, package_name):
@@ -275,26 +369,43 @@ def _find_main_menu_path(file_checker):
     return None
 
 
-def _expected_keymap_base_files(package_name, keymap_files, rel_path_func):
-    platform_variants = {
-        "Default (Linux).sublime-keymap",
-        "Default (OSX).sublime-keymap",
-        "Default (Windows).sublime-keymap",
-    }
+def _package_resource_path(resource, package_name):
+    if not isinstance(resource, str):
+        return None
 
-    expected = set()
-    for keymap_file in keymap_files:
-        rel_path = rel_path_func(keymap_file)
-        rel_path = rel_path.as_posix()
+    prefix = "${{packages}}/{}/".format(package_name)
+    if not resource.startswith(prefix):
+        return None
 
-        for variant in platform_variants:
-            if rel_path.endswith(variant):
-                rel_path = rel_path[:-len(variant)] + "Default (${platform}).sublime-keymap"
-                break
+    rel_path = resource[len(prefix):]
+    if not rel_path:
+        return None
 
-        expected.add("${{packages}}/{}/{}".format(package_name, rel_path))
+    return PurePosixPath(rel_path)
 
-    return sorted(expected)
+
+def _is_platform_keymap(rel_path):
+    return rel_path.name == PLATFORM_KEYMAP_NAME
+
+
+def _is_specific_platform_keymap(rel_path):
+    return bool(SPECIFIC_PLATFORM_KEYMAP_RE.match(rel_path.name))
+
+
+def _is_default_keymap(rel_path):
+    return rel_path.name == "Default.sublime-keymap"
+
+
+def _platform_keymap_paths(rel_path):
+    return [rel_path.with_name(filename) for filename in PLATFORM_KEYMAP_FILENAMES]
+
+
+def _platform_keymap_resource(resource):
+    return PurePosixPath(resource).with_name(PLATFORM_KEYMAP_NAME).as_posix()
+
+
+def _format_rel_paths(paths):
+    return ", ".join(path.as_posix() for path in paths)
 
 
 def _iter_menu_nodes(value):

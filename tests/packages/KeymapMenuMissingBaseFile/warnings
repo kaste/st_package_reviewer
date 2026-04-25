@@ -1,0 +1,2 @@
+- 'Main.sublime-menu' has a 'Key Bindings' entry without required 'args.base_file'.
+    File: Main.sublime-menu
