@@ -32,16 +32,16 @@ class CheckInitializedApiUsage(AstChecker):
     """
 
     API_IMPORT_READY_BUILD = 4171
+    API_IMPORT_READY_SUGGESTION = (
+        "Consider requiring Sublime Text build >= 4171, where "
+        "the API is available at import time and these "
+        "initialization restrictions do not apply."
+    )
 
     def check(self):
         if self.st_build >= self.API_IMPORT_READY_BUILD:
             return
 
-        self.notice(
-            "Consider requiring Sublime Text build >= 4171, where "
-            "the API is available at import time and these "
-            "initialization restrictions do not apply."
-        )
         self.visit_all_pyfiles()
 
     def visit_Module(self, node):
@@ -98,5 +98,10 @@ class CheckInitializedApiUsage(AstChecker):
         else:
             if id_ == "sublime" and attr not in ("platform", "arch", "version", "channel"):
                 with self.node_context(node):
-                    self.fail("Calling unsafe method {!r} of sublime module"
-                              " when API may not have been initialized".format(attr))
+                    self.fail(
+                        "Calling unsafe method {!r} of sublime module "
+                        "when API may not have been initialized. {}".format(
+                            attr,
+                            self.API_IMPORT_READY_SUGGESTION,
+                        )
+                    )

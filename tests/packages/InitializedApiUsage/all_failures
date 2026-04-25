@@ -1,9 +1,9 @@
-- Calling unsafe method 'load_settings' of sublime module when API may not have been initialized
+- Calling unsafe method 'load_settings' of sublime module when API may not have been initialized. Consider requiring Sublime Text build >= 4171, where the API is available at import time and these initialization restrictions do not apply.
     File: plugin.py
     Line: 5, Column: 1
-- Calling unsafe method 'run_command' of sublime module when API may not have been initialized
+- Calling unsafe method 'run_command' of sublime module when API may not have been initialized. Consider requiring Sublime Text build >= 4171, where the API is available at import time and these initialization restrictions do not apply.
     File: plugin.py
     Line: 19, Column: 9
-- Calling unsafe method 'load_resource' of sublime module when API may not have been initialized
+- Calling unsafe method 'load_resource' of sublime module when API may not have been initialized. Consider requiring Sublime Text build >= 4171, where the API is available at import time and these initialization restrictions do not apply.
     File: plugin.py
     Line: 34, Column: 5

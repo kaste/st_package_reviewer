@@ -8,6 +8,7 @@ import pytest
 
 from st_package_reviewer.runner import CheckRunner
 from st_package_reviewer.check import file as file_c
+from st_package_reviewer.check.file.ast.check_initialized_api import CheckInitializedApiUsage
 
 
 def _collect_test_packages():
@@ -169,3 +170,17 @@ def test_reviewer_integration(package_path, check_runner):
 
     if failures:
         assert not check_runner.result()
+
+
+def test_initialized_api_suggestion_is_attached_to_failure():
+    package_path = Path(__file__).with_name("packages") / "InitializedApiUsage"
+    check_runner = CheckRunner([CheckInitializedApiUsage])
+
+    check_runner.run(package_path, st_build=4169)
+
+    assert not check_runner.notices
+    assert check_runner.failures
+    for failure in check_runner.failures:
+        assert failure.message.endswith(
+            CheckInitializedApiUsage.API_IMPORT_READY_SUGGESTION
+        )
