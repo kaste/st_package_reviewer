@@ -49,34 +49,30 @@ class CheckRunner:
         prefix = "" if compact else "Reporting "
 
         if self.notices:
-            print("{}{} notices:".format(prefix, len(self.notices)), file=file)
-        else:
-            print("No notices", file=file)
+            for notice in self._ordered_notices(self.notices):
+                notice.report(file=file)
+            print(file=file)  # new line
 
-        for notice in self._ordered_notices(self.notices):
-            notice.report(file=file)
+        if self.failures or self.warnings:
+            self._report_group("failure", self.failures, file, prefix)
+
+            print(file=file)  # new line
+
+            self._report_group("warning", self.warnings, file, prefix)
+        else:
+            print("No failures, no warnings", file=file)
 
         print(file=file)  # new line
 
-        if self.failures:
-            print("{}{} failures:".format(prefix, len(self.failures)), file=file)
+    def _report_group(self, name, reports, file, prefix):
+        if reports:
+            print("{}{} {}:".format(prefix, len(reports), _pluralize(name, len(reports))),
+                  file=file)
         else:
-            print("No failures", file=file)
+            print("No {}".format(_pluralize(name, 0)), file=file)
 
-        for failure in self.failures:
-            failure.report(file=file)
-
-        print(file=file)  # new line
-
-        if self.warnings:
-            print("{}{} warnings:".format(prefix, len(self.warnings)), file=file)
-        else:
-            print("No warnings", file=file)
-
-        for warning in self.warnings:
-            warning.report(file=file)
-
-        print(file=file)  # new line
+        for report in reports:
+            report.report(file=file)
 
     def _ordered_notices(self, notices):
         return sorted(notices, key=self._notice_sort_key)
@@ -86,3 +82,9 @@ class CheckRunner:
 
     def _is_repository_report(self, report):
         return any(str(ctx).startswith("Repository:") for ctx in report.context)
+
+
+def _pluralize(name, count):
+    if count == 1:
+        return name
+    return name + "s"

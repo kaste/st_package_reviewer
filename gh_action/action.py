@@ -1033,14 +1033,11 @@ def emit_review_annotations(raw_review_out: Path, console: Console) -> None:
     with raw_review_out.open("r", encoding="utf-8", errors="replace") as f:
         for line in f:
             stripped = line.rstrip("\n")
-            if re.match(r"^(Reporting )?[0-9]+ failures:", stripped):
+            if re.match(r"^(Reporting )?[0-9]+ failures?:", stripped):
                 mode = "error"
                 continue
-            if re.match(r"^(Reporting )?[0-9]+ warnings:", stripped):
+            if re.match(r"^(Reporting )?[0-9]+ warnings?:", stripped):
                 mode = "warning"
-                continue
-            if re.match(r"^(Reporting )?[0-9]+ notices:", stripped):
-                mode = "notice"
                 continue
             if stripped.startswith("- ") and mode:
                 console.write_stdout(f"::{mode} title=CHECK ::{stripped[2:]}")
