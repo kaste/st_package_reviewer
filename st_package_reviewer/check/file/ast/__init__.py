@@ -1,6 +1,8 @@
 import functools
 import ast
+import re
 import tokenize
+import warnings
 from pathlib import Path
 from ....check.file import FileChecker
 from ....check import find_all
@@ -43,7 +45,9 @@ class AstChecker(FileChecker, ast.NodeVisitor):
             # avoiding locale-dependent decoding behavior on Windows.
             with tokenize.open(str(path)) as f:
                 source = f.read()
-            the_ast = ast.parse(source, str(path))
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always", SyntaxWarning)
+                the_ast = ast.parse(source, str(path))
         except SyntaxError as e:
             with self.context("Line: {}".format(e.lineno)):
                 self.fail("Unable to parse Python file", exception=e)
@@ -51,7 +55,36 @@ class AstChecker(FileChecker, ast.NodeVisitor):
             self.fail("Unable to decode Python file", exception=e)
         else:
             self._ast_cache[path] = the_ast
+            self._warn_about_syntax_warnings(caught_warnings)
             return the_ast
+
+    def _warn_about_syntax_warnings(self, caught_warnings):
+        for warning in caught_warnings:
+            if not issubclass(warning.category, SyntaxWarning):
+                warnings.warn_explicit(
+                    warning.message,
+                    warning.category,
+                    warning.filename,
+                    warning.lineno,
+                )
+                continue
+
+            with self.context("Line: {}".format(warning.lineno)):
+                self.warn(
+                    "Python SyntaxWarning: {}".format(
+                        self._format_syntax_warning(warning.message)
+                    )
+                )
+
+    def _format_syntax_warning(self, message):
+        message = str(message)
+        match = re.match(
+            r'"(?P<escape>\\.)" is an invalid escape sequence\.',
+            message,
+        )
+        if match:
+            return "invalid escape sequence '{}'".format(match.group("escape"))
+        return message
 
     def node_context(self, node):
         return self.context("Line: {}, Column: {}".format(node.lineno, node.col_offset + 1))

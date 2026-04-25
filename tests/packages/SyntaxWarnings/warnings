@@ -1,0 +1,3 @@
+- Python SyntaxWarning: invalid escape sequence '\%'
+    File: plugin.py
+    Line: 1
