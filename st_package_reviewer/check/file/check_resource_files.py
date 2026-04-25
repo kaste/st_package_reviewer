@@ -190,6 +190,10 @@ class CheckKeymapMenuEntry(FileChecker):
 
             valid_entries, missing_command_count, custom_commands = _analyze_settings_commands(
                 key_binding_entries)
+            edit_settings_entries = [
+                entry for entry in valid_entries
+                if entry.get('command') == 'edit_settings'
+            ]
             if missing_command_count:
                 self.fail("'Main.sublime-menu' has a 'Key Bindings' entry for {!r} without "
                           "a 'command' key"
@@ -199,11 +203,11 @@ class CheckKeymapMenuEntry(FileChecker):
                 self.notice("The command referenced for editing key bindings is `{}`."
                             .format(command))
 
-            if not valid_entries:
+            if not edit_settings_entries:
                 return
 
             base_file_entries = [
-                entry for entry in valid_entries
+                entry for entry in edit_settings_entries
                 if entry.get('args', {}).get('base_file')
             ]
             if not base_file_entries:

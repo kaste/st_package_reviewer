@@ -1,0 +1,22 @@
+[
+  {
+    "id": "preferences",
+    "children": [
+      {
+        "caption": "Package Settings",
+        "id": "package-settings",
+        "children": [
+          {
+            "caption": "File Browser",
+            "children": [
+              {
+                "caption": "Key Bindings",
+                "command": "key_bindings"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
