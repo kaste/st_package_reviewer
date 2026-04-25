@@ -1,0 +1,94 @@
+name: Package Reviewer Package Action
+description: Review a package/plugin repository checkout with st_package_reviewer
+inputs:
+  path:
+    description: Path to the package directory to check
+    default: .
+    required: false
+  repo:
+    description: Value passed to --repo for repository checks (set to empty to disable)
+    default: .
+    required: false
+  package-name:
+    description: Explicit package name. If omitted, guessed from the repository name.
+    required: false
+  st-build:
+    description: Optional minimum required Sublime Text build passed to --st-build.
+    required: false
+  fail-on-warnings:
+    description: "If 'true', return a non-zero exit code for warnings as well."
+    default: "false"
+    required: false
+  compact:
+    description: "If 'true', pass --compact to reduce output verbosity."
+    default: "false"
+    required: false
+outputs:
+  package-name:
+    description: Effective package name passed to --package-name
+    value: ${{ steps.resolve-package-name.outputs.package_name }}
+runs:
+  using: composite
+  steps:
+    - name: Ensure uv is available
+      uses: astral-sh/setup-uv@v5
+
+    - id: resolve-package-name
+      name: Resolve package name
+      shell: bash
+      env:
+        INPUT_PACKAGE_NAME: ${{ inputs.package-name }}
+      run: |
+        set -euo pipefail
+
+        package_name="$INPUT_PACKAGE_NAME"
+
+        if [[ -z "$package_name" ]]; then
+          repo_name="${GITHUB_REPOSITORY#*/}"
+          repo_name="${repo_name%.git}"
+          repo_name="${repo_name%.sublime-package}"
+          package_name="$repo_name"
+          echo "Guessed package name from GITHUB_REPOSITORY: $package_name"
+        else
+          echo "Using explicit package name: $package_name"
+        fi
+
+        echo "package_name=$package_name" >> "$GITHUB_OUTPUT"
+
+    - name: Run st_package_reviewer
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_REPO: ${{ inputs.repo }}
+        INPUT_PACKAGE_NAME: ${{ steps.resolve-package-name.outputs.package_name }}
+        INPUT_ST_BUILD: ${{ inputs.st-build }}
+        INPUT_FAIL_ON_WARNINGS: ${{ inputs.fail-on-warnings }}
+        INPUT_COMPACT: ${{ inputs.compact }}
+      run: |
+        set -euo pipefail
+
+        args=()
+
+        if [[ -n "$INPUT_PACKAGE_NAME" ]]; then
+          args+=(--package-name "$INPUT_PACKAGE_NAME")
+        fi
+
+        if [[ -n "$INPUT_ST_BUILD" ]]; then
+          args+=(--st-build "$INPUT_ST_BUILD")
+        fi
+
+        if [[ "${INPUT_FAIL_ON_WARNINGS,,}" == "true" ]]; then
+          args+=(--fail-on-warnings)
+        fi
+
+        if [[ "${INPUT_COMPACT,,}" == "true" ]]; then
+          args+=(--compact)
+        fi
+
+        if [[ -n "$INPUT_REPO" ]]; then
+          args+=(--repo "$INPUT_REPO")
+        fi
+
+        args+=("$INPUT_PATH")
+
+        uv run --project "${{ github.action_path }}/.." st_package_reviewer "${args[@]}"
