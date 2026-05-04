@@ -17,7 +17,7 @@ def test_append_package_review_places_repo_after_code_block(tmp_path):
         review,
         "Example",
         "main-abc123-2026.05.04.02.53.13",
-        "- Tip of main is tagged with 1.0.1. ✅\n\nNo failures, no warnings\n",
+        "- Tip of main is tagged with 1.0.1. ✅\n\nNo failures, no warnings.\n",
         "https://github.com/example/package",
     )
 
@@ -26,7 +26,7 @@ def test_append_package_review_places_repo_after_code_block(tmp_path):
         "## Review for Example main-abc123-2026.05.04.02.53.13\n\n"
         "```\n"
         "- Tip of main is tagged with 1.0.1. ✅\n\n"
-        "No failures, no warnings\n"
+        "No failures, no warnings.\n"
         "```\n"
         "Repository: https://github.com/example/package\n\n"
     )

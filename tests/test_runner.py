@@ -41,7 +41,7 @@ def test_report_combines_empty_failure_and_warning_groups():
     out = StringIO()
     runner.report(file=out, compact=True)
 
-    assert out.getvalue() == "No failures, no warnings\n\n"
+    assert out.getvalue() == "No failures, no warnings.\n\n"
 
 
 def test_report_omits_empty_notice_group():

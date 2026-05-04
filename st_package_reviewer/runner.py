@@ -60,7 +60,7 @@ class CheckRunner:
 
             self._report_group("warning", self.warnings, file, prefix)
         else:
-            print("No failures, no warnings", file=file)
+            print("No failures, no warnings.", file=file)
 
         print(file=file)  # new line
 

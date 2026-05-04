@@ -39,7 +39,7 @@ def test_emit_review_annotations_does_not_need_notice_header(tmp_path):
         "- A plain notice\n"
         "    File: Main.sublime-menu\n"
         "\n"
-        "No failures, no warnings\n",
+        "No failures, no warnings.\n",
         encoding="utf-8",
     )
     console = CapturingConsole()
