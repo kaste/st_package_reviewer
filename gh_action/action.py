@@ -685,11 +685,7 @@ def diff_registry_packages(base_file: Path, target_file: Path) -> tuple[list[str
     ]
     changed.sort()
 
-    changes_summary = (
-        f"Removed {format_oxford_list(removed)}, "
-        f"changed {format_oxford_list(changed)}, "
-        f"added {format_oxford_list(added)}."
-    )
+    changes_summary = format_channel_changes(removed, changed, added)
 
     return changed + added, changes_summary
 
@@ -698,10 +694,80 @@ def extract_registry_map(registry_json: dict) -> dict[str, dict[str, object]]:
     return {package["name"]: package for package in registry_json["packages"]}
 
 
+def format_channel_changes(
+    removed: list[str],
+    changed: list[str],
+    added: list[str],
+) -> str:
+    groups = [
+        ("removes", "Removes", "Removed", removed),
+        ("changes", "Changes", "Changed", changed),
+        ("adds", "Adds", "Added", added),
+    ]
+    populated = [group for group in groups if group[3]]
+    total = sum(len(items) for _, _, _, items in populated)
+
+    if total == 0:
+        return "No package changes."
+    if total <= 3:
+        return format_channel_changes_sentence(populated)
+    if total <= 10:
+        return format_channel_changes_sections(populated)
+    return format_channel_changes_bulk(populated, total)
+
+
+def format_channel_changes_sentence(
+    groups: list[tuple[str, str, str, list[str]]],
+) -> str:
+    clauses = [
+        f"{verb} {format_oxford_list(items)}"
+        for verb, _, _, items in groups
+    ]
+    return f"This PR {format_oxford_list(clauses)}."
+
+
+def format_channel_changes_sections(
+    groups: list[tuple[str, str, str, list[str]]],
+) -> str:
+    lines = []
+    for _, section_label, _, items in groups:
+        if len(items) == 1:
+            lines.append(f"{section_label} {items[0]}.")
+        else:
+            lines.append(f"{section_label}: {format_oxford_list(items)}.")
+    return "\n\n".join(lines)
+
+
+def format_channel_changes_bulk(
+    groups: list[tuple[str, str, str, list[str]]],
+    total: int,
+) -> str:
+    package_word = "package" if total == 1 else "packages"
+    lines = [f"Channel changes: {total} {package_word} affected.", ""]
+    lines.extend(
+        f"- {count_label}: {len(items)}"
+        for _, _, count_label, items in groups
+    )
+    lines.extend(["", "<details>", "<summary>Package list</summary>", ""])
+    lines.append(format_channel_changes_details(groups))
+    lines.extend(["", "</details>"])
+    return "\n".join(lines)
+
+
+def format_channel_changes_details(
+    groups: list[tuple[str, str, str, list[str]]],
+) -> str:
+    sections = []
+    for _, _, detail_label, items in groups:
+        bullets = "\n".join(f"- {item}" for item in items)
+        sections.append(f"{detail_label}:\n{bullets}")
+    return "\n\n".join(sections)
+
+
 def format_oxford_list(items: list[str]) -> str:
     count = len(items)
     if count == 0:
-        return "(none)"
+        return ""
     if count == 1:
         return items[0]
     if count == 2:
