@@ -115,51 +115,50 @@ class CheckRepoTags(FileChecker):
         repo_path = Path(self.repo)
         is_local_repo = repo_path.is_dir() and self._is_git_repo(repo_path)
 
-        with self.context("Repository: {}".format(self.repo)):
-            if is_local_repo:
-                tags, error = self._list_local_tags(repo_path)
-            else:
-                tags, error = self._list_remote_tags(self.repo)
-            if error:
-                self.fail("Unable to inspect repository tags: {}".format(error))
-                return
+        if is_local_repo:
+            tags, error = self._list_local_tags(repo_path)
+        else:
+            tags, error = self._list_remote_tags(self.repo)
+        if error:
+            self.fail("Unable to inspect repository tags: {}".format(error))
+            return
 
-            semver_tags = _parse_semver_tags(tags)
-            if not semver_tags:
-                message = "No semantic version tags found"
-                if not tags:
-                    message += " (no tags found at all)"
-                self.fail(message)
-                return
+        semver_tags = _parse_semver_tags(tags)
+        if not semver_tags:
+            message = "No semantic version tags found"
+            if not tags:
+                message += " (no tags found at all)"
+            self.fail(message)
+            return
 
-            if all(version.is_prerelease for _, version in semver_tags):
-                self.warn("Only found pre-release tags.")
+        if all(version.is_prerelease for _, version in semver_tags):
+            self.warn("Only found pre-release tags.")
 
-            latest_semver_tag = _latest_semver_tag(semver_tags)
-            if is_local_repo:
-                tip_status = self._collect_tip_status_local(repo_path, latest_semver_tag)
-            else:
-                tip_status = self._collect_tip_status_remote(self.repo, latest_semver_tag)
-            if not tip_status:
-                return
+        latest_semver_tag = _latest_semver_tag(semver_tags)
+        if is_local_repo:
+            tip_status = self._collect_tip_status_local(repo_path, latest_semver_tag)
+        else:
+            tip_status = self._collect_tip_status_remote(self.repo, latest_semver_tag)
+        if not tip_status:
+            return
 
-            branch_name, tip_tag_version, commits_behind = tip_status
-            if tip_tag_version:
-                self.notice(
-                    "Tip of {} is tagged with {}. ✅".format(branch_name, tip_tag_version)
+        branch_name, tip_tag_version, commits_behind = tip_status
+        if tip_tag_version:
+            self.notice(
+                "Tip of {} is tagged with {}. ✅".format(branch_name, tip_tag_version)
+            )
+            return
+
+        if commits_behind is not None:
+            self.notice(
+                "Latest version {} is {} commit{} behind tip of {}."
+                .format(
+                    _normalize_tag_name(latest_semver_tag),
+                    commits_behind,
+                    "s" if commits_behind != 1 else "",
+                    branch_name,
                 )
-                return
-
-            if commits_behind is not None:
-                self.notice(
-                    "Latest version {} is {} commit{} behind tip of {}."
-                    .format(
-                        _normalize_tag_name(latest_semver_tag),
-                        commits_behind,
-                        "s" if commits_behind != 1 else "",
-                        branch_name,
-                    )
-                )
+            )
 
     def _is_git_repo(self, path):
         proc = subprocess.run(

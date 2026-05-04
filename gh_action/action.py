@@ -118,7 +118,6 @@ def main(argv: list[str] | None = None) -> None:
 
         console.write(f"::notice title=CHANGES ::{changes_summary}")
         with review_md.open("a", encoding="utf-8") as f:
-            f.write("## Channel Diff\n\n")
             f.write(f"{changes_summary}\n\n")
 
         if not pkgs:
@@ -276,13 +275,13 @@ def main(argv: list[str] | None = None) -> None:
 
                 emit_review_annotations(raw_review_out, console)
                 raw = raw_review_out.read_text(encoding="utf-8", errors="replace")
-                with review_md.open("a", encoding="utf-8") as f:
-                    f.write(f"## Review for {pkg} {display_ver}\n\n")
-                    f.write("```text\n")
-                    f.write(raw)
-                    if not raw.endswith("\n"):
-                        f.write("\n")
-                    f.write("```\n\n")
+                append_package_review(
+                    review_md,
+                    pkg,
+                    display_ver,
+                    raw,
+                    repo_url if tags_mode else "",
+                )
 
                 if review.returncode != 0:
                     console.write(f"  ! Review failed for {pkg}@{ver}")
@@ -317,6 +316,25 @@ class Console:
 
     def write_stdout(self, message: str) -> None:
         print(message, file=sys.stdout)
+
+
+def append_package_review(
+    review_md: Path,
+    package_name: str,
+    display_version: str,
+    raw_review: str,
+    repo_url: str = "",
+) -> None:
+    with review_md.open("a", encoding="utf-8") as f:
+        f.write(f"## Review for {package_name} {display_version}\n\n")
+        f.write("```\n")
+        f.write(raw_review)
+        if not raw_review.endswith("\n"):
+            f.write("\n")
+        f.write("```\n")
+        if repo_url:
+            f.write(f"Repository: {repo_url}\n")
+        f.write("\n")
 
 
 def parse_workspace_release(workspace: Path, package_name: str) -> dict[str, str] | None:
@@ -853,7 +871,7 @@ def command_exists(name: str) -> bool:
 
 def init_review_md(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("# Package Review\n\n", encoding="utf-8")
+    path.write_text("", encoding="utf-8")
 
 
 def setup_thecrawl(src: str, target: Path, console: Console) -> Path:

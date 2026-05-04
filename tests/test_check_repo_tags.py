@@ -51,6 +51,11 @@ def test_repo_tags_passes_with_final_semver(tmp_path):
         notice.message.endswith("is tagged with 1.0.0. ✅")
         for notice in checker.notices
     )
+    assert all(
+        "Repository:" not in ctx
+        for notice in checker.notices
+        for ctx in notice.context
+    )
 
 
 def test_repo_tags_notices_when_tip_is_behind_latest_tag(tmp_path):
