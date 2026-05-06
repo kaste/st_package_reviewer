@@ -25,6 +25,9 @@ runs:
   steps:
     - name: Ensure uv is available
       uses: astral-sh/setup-uv@v8.1.0
+      with:
+        # Cache this action's uv environment, not the caller's repository.
+        cache-dependency-glob: ${{ github.action_path }}/../uv.lock
 
     - name: Validate inputs
       shell: bash

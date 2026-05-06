@@ -43,6 +43,8 @@ jobs:
       - uses: astral-sh/setup-uv@v8.1.0
         with:
           python-version: "3.13"
+          # This workflow has no local uv project dependency file to key on.
+          enable-cache: false
 
       - name: Run st_package_reviewer (official fork)
         run: uvx --from git+https://github.com/kaste/st_package_reviewer.git st_package_reviewer --repo=. .

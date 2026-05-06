@@ -32,6 +32,9 @@ runs:
   steps:
     - name: Ensure uv is available
       uses: astral-sh/setup-uv@v8.1.0
+      with:
+        # Cache this action's uv environment, not the package repository.
+        cache-dependency-glob: ${{ github.action_path }}/../uv.lock
 
     - id: resolve-package-name
       name: Resolve package name
