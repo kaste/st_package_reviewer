@@ -34,13 +34,13 @@ jobs:
   package-review:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Repository checks inspect tags; the checkout action does not fetch
           # them by default for shallow clones.
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v8.1.0
         with:
           python-version: "3.13"
 

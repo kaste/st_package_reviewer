@@ -24,7 +24,7 @@ runs:
   using: composite
   steps:
     - name: Ensure uv is available
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@v8.1.0
 
     - name: Validate inputs
       shell: bash
