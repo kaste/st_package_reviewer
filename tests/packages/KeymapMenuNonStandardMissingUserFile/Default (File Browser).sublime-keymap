@@ -1,0 +1,3 @@
+[
+  { "keys": ["ctrl+alt+b"], "command": "file_browser_toggle" }
+]

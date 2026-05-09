@@ -115,7 +115,10 @@ class CheckSettingsMenuEntry(FileChecker):
             if package_node is None:
                 self.warn(_missing_package_settings_entry_warning(menu_data,
                                                                    self.package_name))
-                return
+                package_node = _find_package_settings_resource_node(menu_data,
+                                                                    self.package_name)
+                if package_node is None:
+                    return
 
             expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(self.package_name)
             settings_entries = _find_menu_entries(package_node, caption="Settings")
@@ -219,7 +222,10 @@ class CheckKeymapMenuEntry(FileChecker):
             if package_node is None:
                 self.warn(_missing_package_settings_entry_warning(menu_data,
                                                                    self.package_name))
-                return
+                package_node = _find_package_settings_resource_node(menu_data,
+                                                                    self.package_name)
+                if package_node is None:
+                    return
 
             key_binding_entries = _find_menu_entries(package_node,
                                                      caption="Key Bindings",
@@ -284,8 +290,8 @@ class CheckKeymapMenuEntry(FileChecker):
                       "Use {!r} instead."
                       .format(_platform_keymap_resource(base_file)))
 
-        if _is_default_keymap(rel_path) and entry.get('command') == 'edit_settings':
-            self._check_default_keymap_user_file(entry)
+        if _requires_user_keymap(rel_path) and entry.get('command') == 'edit_settings':
+            self._check_keymap_user_file(entry, rel_path)
 
     def _check_platform_keymap_base_file(self, base_file, rel_path):
         platform_keymap_paths = _platform_keymap_paths(rel_path)
@@ -304,14 +310,23 @@ class CheckKeymapMenuEntry(FileChecker):
                       "files are missing: {}"
                       .format(base_file, _format_rel_paths(missing_paths)))
 
-    def _check_default_keymap_user_file(self, entry):
+    def _check_keymap_user_file(self, entry, rel_path):
         user_file = entry.get('args', {}).get('user_file')
         if user_file == USER_PLATFORM_KEYMAP:
             return
 
-        message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
-                   "Default.sublime-keymap without 'args.user_file' set to "
-                   "{!r}.".format(USER_PLATFORM_KEYMAP))
+        if _is_default_keymap(rel_path):
+            message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
+                       "Default.sublime-keymap without 'args.user_file' set to "
+                       "{!r}.".format(USER_PLATFORM_KEYMAP))
+        else:
+            message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
+                       "{!r} without 'args.user_file' set. For non-standard "
+                       "keymap names this is required because edit_settings "
+                       "will otherwise create that filename in User, but "
+                       "Sublime Text will not load it. Set 'args.user_file' "
+                       "to {!r}."
+                       .format(rel_path.name, USER_PLATFORM_KEYMAP))
         if user_file:
             message += " Found: {}".format(user_file)
         self.fail(message)
@@ -385,6 +400,14 @@ def _find_package_settings_node(menu_data, package_name):
 
 
 def _find_package_settings_resource_caption(menu_data, package_name):
+    node = _find_package_settings_resource_node(menu_data, package_name)
+    if node is None:
+        return None
+
+    return node.get('caption')
+
+
+def _find_package_settings_resource_node(menu_data, package_name):
     for package_settings_node in _iter_package_settings_nodes(menu_data):
         children = package_settings_node.get('children')
         if not isinstance(children, list):
@@ -399,7 +422,7 @@ def _find_package_settings_resource_caption(menu_data, package_name):
                 continue
 
             if _node_references_package_resource(node, package_name):
-                return caption
+                return node
     return None
 
 
@@ -499,6 +522,13 @@ def _is_platform_keymap(rel_path):
 
 def _is_specific_platform_keymap(rel_path):
     return bool(SPECIFIC_PLATFORM_KEYMAP_RE.match(rel_path.name))
+
+
+def _requires_user_keymap(rel_path):
+    if _is_default_keymap(rel_path):
+        return True
+
+    return not _is_specific_platform_keymap(rel_path)
 
 
 def _is_default_keymap(rel_path):
