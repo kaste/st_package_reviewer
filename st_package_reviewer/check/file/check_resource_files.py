@@ -103,7 +103,7 @@ class CheckSettingsMenuEntry(FileChecker):
         menu_path = _find_main_menu_path(self)
         if menu_path is None:
             self.warn("Package defines '.sublime-settings' files but is missing "
-                      "'Main.sublime-menu'")
+                      "'Main.sublime-menu' to add menu entries to edit them.")
             return
 
         with self.file_context(menu_path):
