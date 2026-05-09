@@ -1,0 +1,17 @@
+[
+  {
+    "caption": "Tools",
+    "id": "tools",
+    "children": [
+      {
+        "caption": "CodeShot",
+        "children": [
+          {
+            "caption": "Copy Image to Clipboard",
+            "command": "code_shot"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,2 @@
+- 'Main.sublime-menu' has no settings entry under 'Preferences > Package Settings > CodeShot' to edit 'CodeShot.sublime-settings'. Add a 'Settings' entry using edit_settings with 'args.base_file' set to '${packages}/CodeShot/CodeShot.sublime-settings'.
+    File: Main.sublime-menu

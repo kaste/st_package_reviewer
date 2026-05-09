@@ -111,16 +111,18 @@ class CheckSettingsMenuEntry(FileChecker):
             if menu_data is None or not self.package_name:
                 return
 
+            expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(self.package_name)
             package_node = _find_package_settings_node(menu_data, self.package_name)
             if package_node is None:
-                self.warn(_missing_package_settings_entry_warning(menu_data,
-                                                                   self.package_name))
+                self.warn(_missing_settings_package_entry_warning(menu_data,
+                                                                   self.package_name,
+                                                                   settings_files,
+                                                                   expected_base_file))
                 package_node = _find_package_settings_resource_node(menu_data,
                                                                     self.package_name)
                 if package_node is None:
                     return
 
-            expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(self.package_name)
             settings_entries = _find_menu_entries(package_node, caption="Settings")
             if not settings_entries:
                 self.warn("'Main.sublime-menu' has no 'Settings' menu entry for {!r}"
@@ -377,18 +379,49 @@ def _format_expected_base_files(expected_base_files):
     return "set to one of {}".format(", ".join(repr(path) for path in expected_base_files))
 
 
+def _missing_settings_package_entry_warning(menu_data, package_name, settings_files,
+                                            expected_base_file):
+    caption = _find_package_settings_resource_caption(menu_data, package_name)
+    if caption:
+        return _mismatched_package_settings_entry_warning(caption, package_name)
+
+    settings_file = _find_standard_settings_file_name(settings_files, package_name)
+    if settings_file is None:
+        settings_file = ".sublime-settings files"
+
+    return (
+        "'Main.sublime-menu' has no settings entry under "
+        "'Preferences > Package Settings > {}' to edit {!r}. Add a "
+        "'Settings' entry using edit_settings with 'args.base_file' set "
+        "to {!r}."
+        .format(package_name, settings_file, expected_base_file)
+    )
+
+
 def _missing_package_settings_entry_warning(menu_data, package_name):
     caption = _find_package_settings_resource_caption(menu_data, package_name)
     if caption:
-        return (
-            "'Main.sublime-menu' adds menu entries under "
-            "'Package Settings > {}'. We expect this to match the actual "
-            "package name, e.g. 'Package Settings > {}'."
-            .format(caption, package_name)
-        )
+        return _mismatched_package_settings_entry_warning(caption, package_name)
 
     return "'Main.sublime-menu' has no 'Package Settings' entry for {!r}".format(
         package_name)
+
+
+def _mismatched_package_settings_entry_warning(caption, package_name):
+    return (
+        "'Main.sublime-menu' adds menu entries under "
+        "'Package Settings > {}'. We expect this to match the actual "
+        "package name, e.g. 'Package Settings > {}'."
+        .format(caption, package_name)
+    )
+
+
+def _find_standard_settings_file_name(settings_files, package_name):
+    expected_name = "{}.sublime-settings".format(package_name)
+    for path in settings_files:
+        if path.name == expected_name:
+            return path.name
+    return None
 
 
 def _find_package_settings_node(menu_data, package_name):
