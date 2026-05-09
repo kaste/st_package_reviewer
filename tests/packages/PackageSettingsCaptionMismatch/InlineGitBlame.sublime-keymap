@@ -1,0 +1,3 @@
+[
+  { "keys": ["ctrl+alt+b"], "command": "inline_git_blame_toggle" }
+]

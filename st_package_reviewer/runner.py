@@ -23,7 +23,7 @@ class CheckRunner:
 
             checker_obj.perform_check()
             self.failures.extend(checker_obj.failures)
-            self.warnings.extend(checker_obj.warnings)
+            _extend_unique(self.warnings, checker_obj.warnings)
             self.notices.extend(checker_obj.notices)
             l.debug("Checker '%s' result: %s",
                     checker_obj.__class__.__name__,
@@ -82,6 +82,21 @@ class CheckRunner:
 
     def _is_repository_report(self, report):
         return any(str(ctx).startswith("Repository:") for ctx in report.context)
+
+
+def _extend_unique(reports, new_reports):
+    seen = {_report_key(report) for report in reports}
+    for report in new_reports:
+        key = _report_key(report)
+        if key in seen:
+            continue
+
+        reports.append(report)
+        seen.add(key)
+
+
+def _report_key(report):
+    return report.message, report.details
 
 
 def _pluralize(name, count):

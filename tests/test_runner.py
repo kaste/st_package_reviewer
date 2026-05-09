@@ -1,5 +1,6 @@
 from io import StringIO
 
+from st_package_reviewer.check import Checker
 from st_package_reviewer.check.report import Report
 from st_package_reviewer.runner import CheckRunner
 
@@ -52,3 +53,18 @@ def test_report_omits_empty_notice_group():
     runner.report(file=out, compact=True)
 
     assert "No notices" not in out.getvalue()
+
+
+def test_run_deduplicates_warnings():
+    runner = CheckRunner([DuplicateWarningChecker, DuplicateWarningChecker])
+
+    runner.run()
+
+    assert runner.warnings == [Report("Duplicate warning", ("File: Main.sublime-menu",),
+                                      None, None)]
+
+
+class DuplicateWarningChecker(Checker):
+
+    def check(self):
+        self.warn("Duplicate warning", context=("File: Main.sublime-menu",))

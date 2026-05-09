@@ -113,8 +113,8 @@ class CheckSettingsMenuEntry(FileChecker):
 
             package_node = _find_package_settings_node(menu_data, self.package_name)
             if package_node is None:
-                self.warn("'Main.sublime-menu' has no 'Package Settings' entry for {!r}"
-                          .format(self.package_name))
+                self.warn(_missing_package_settings_entry_warning(menu_data,
+                                                                   self.package_name))
                 return
 
             expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(self.package_name)
@@ -217,8 +217,8 @@ class CheckKeymapMenuEntry(FileChecker):
 
             package_node = _find_package_settings_node(menu_data, self.package_name)
             if package_node is None:
-                self.warn("'Main.sublime-menu' has no 'Package Settings' entry for key "
-                          "bindings of {!r}".format(self.package_name))
+                self.warn(_missing_package_settings_entry_warning(menu_data,
+                                                                   self.package_name))
                 return
 
             key_binding_entries = _find_menu_entries(package_node,
@@ -362,18 +362,68 @@ def _format_expected_base_files(expected_base_files):
     return "set to one of {}".format(", ".join(repr(path) for path in expected_base_files))
 
 
-def _find_package_settings_node(menu_data, package_name):
-    package_settings_nodes = [
-        node for node in _iter_menu_nodes(menu_data)
-        if isinstance(node, dict)
-        and (node.get('id') == 'package-settings' or node.get('caption') == 'Package Settings')
-    ]
+def _missing_package_settings_entry_warning(menu_data, package_name):
+    caption = _find_package_settings_resource_caption(menu_data, package_name)
+    if caption:
+        return (
+            "'Main.sublime-menu' adds menu entries under "
+            "'Package Settings > {}'. We expect this to match the actual "
+            "package name, e.g. 'Package Settings > {}'."
+            .format(caption, package_name)
+        )
 
-    for package_settings_node in package_settings_nodes:
+    return "'Main.sublime-menu' has no 'Package Settings' entry for {!r}".format(
+        package_name)
+
+
+def _find_package_settings_node(menu_data, package_name):
+    for package_settings_node in _iter_package_settings_nodes(menu_data):
         for node in _iter_menu_nodes(package_settings_node.get('children', ())):
             if isinstance(node, dict) and node.get('caption') == package_name:
                 return node
     return None
+
+
+def _find_package_settings_resource_caption(menu_data, package_name):
+    for package_settings_node in _iter_package_settings_nodes(menu_data):
+        children = package_settings_node.get('children')
+        if not isinstance(children, list):
+            continue
+
+        for node in children:
+            if not isinstance(node, dict):
+                continue
+
+            caption = node.get('caption')
+            if not isinstance(caption, str) or caption == package_name:
+                continue
+
+            if _node_references_package_resource(node, package_name):
+                return caption
+    return None
+
+
+def _iter_package_settings_nodes(menu_data):
+    return (
+        node for node in _iter_menu_nodes(menu_data)
+        if isinstance(node, dict)
+        and (node.get('id') == 'package-settings' or node.get('caption') == 'Package Settings')
+    )
+
+
+def _node_references_package_resource(value, package_name):
+    for node in _iter_menu_nodes(value):
+        if not isinstance(node, dict):
+            continue
+
+        args = node.get('args')
+        if not isinstance(args, dict):
+            continue
+
+        for key in ('base_file', 'user_file'):
+            if _package_resource_path(args.get(key), package_name) is not None:
+                return True
+    return False
 
 
 def _find_menu_entries(package_node, caption, loose=False):
