@@ -51,7 +51,7 @@ class CheckJsoncFiles(FileChecker):
             return
 
         if _contains_commented_example(file_path.suffix, source):
-            self.notice(_example_file_notice(file_path.suffix))
+            self.notice(_example_file_notice(file_path))
             return
 
         self.fail("Remove this file, it doesn't define anything")
@@ -75,12 +75,13 @@ def _contains_commented_example(suffix, source):
     return any(hint in text for hint in hints)
 
 
-def _example_file_notice(suffix):
-    if suffix == ".sublime-keymap":
+def _example_file_notice(file_path):
+    if file_path.suffix == ".sublime-keymap":
         return (
-            "This file only contains commented examples. Consider defining "
+            "'{0}' only contains commented examples. Consider defining "
             "'Example.sublime-keymap' and linking it from "
             "'Main.sublime-menu'."
+            .format(file_path.name)
         )
 
     return "This file only contains commented examples."
