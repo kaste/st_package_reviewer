@@ -55,6 +55,29 @@ def test_report_omits_empty_notice_group():
     assert "No notices" not in out.getvalue()
 
 
+def test_report_omits_redundant_file_detail():
+    report = Report("'Default.sublime-keymap' only contains commented examples.",
+                    ("File: Default.sublime-keymap",), None, None)
+
+    out = StringIO()
+    report.report(file=out)
+
+    assert out.getvalue() == "- 'Default.sublime-keymap' only contains commented examples.\n"
+
+
+def test_report_keeps_file_detail_with_subdirectory():
+    report = Report("'Default.sublime-keymap' only contains commented examples.",
+                    ("File: resources/Default.sublime-keymap",), None, None)
+
+    out = StringIO()
+    report.report(file=out)
+
+    assert out.getvalue() == (
+        "- 'Default.sublime-keymap' only contains commented examples.\n"
+        "    File: resources/Default.sublime-keymap\n"
+    )
+
+
 def test_run_deduplicates_warnings():
     runner = CheckRunner([DuplicateWarningChecker, DuplicateWarningChecker])
 
