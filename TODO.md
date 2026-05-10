@@ -18,3 +18,17 @@ those. Possible examples:
   the others.
 - Bundled platform-specific binaries without matching Package Control platform
   metadata.
+
+## Keymap context checks
+
+Masked conflicts with Sublime Text default key bindings are usually fine when a
+`context` is present, so the reviewer no longer reports them by default. If this
+comes back, add targeted checks for suspicious contexts instead of enumerating
+all masked conflicts. Possible examples:
+
+- Bindings that only use broad built-in state contexts such as `num_selections`
+  or `selection_empty`.
+- Treat scope-limiting contexts such as `selector` and package-specific settings
+  like `setting.<package-name>...` as intentional and quiet.
+- Consider reporting custom contexts only when the message can explain a concrete
+  risk and a concrete fix.
