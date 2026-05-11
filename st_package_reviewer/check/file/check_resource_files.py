@@ -84,19 +84,30 @@ class CheckSettingsFileName(FileChecker):
             return
 
         expected_name = "{}.sublime-settings".format(self.package_name)
-        if any(path.name == expected_name for path in settings_files):
+        unexpected_settings = [
+            path for path in settings_files
+            if path.name != expected_name and not _is_syntax_settings_file(path)
+        ]
+        if not unexpected_settings:
             return
 
-        found_names = ", ".join(path.name for path in settings_files)
-        with self.context("Expected file: {}".format(expected_name)):
-            self.warn("No standard settings file matches the package name {!r}. Found: {}"
-                      .format(self.package_name, found_names))
+        for path in unexpected_settings:
+            with self.file_context(path):
+                self.warn("You define {!r} but {!r} is neither your package "
+                          "name nor the name of a syntax you ship."
+                          .format(path.name, path.stem))
 
 
 class CheckSettingsMenuEntry(FileChecker):
 
     def check(self):
-        settings_files = sorted(self.glob("**/*.sublime-settings"))
+        if not self.package_name:
+            return
+
+        settings_files = _find_package_settings_files(
+            sorted(self.glob("**/*.sublime-settings")),
+            self.package_name,
+        )
         if not settings_files:
             return
 
@@ -108,7 +119,7 @@ class CheckSettingsMenuEntry(FileChecker):
 
         with self.file_context(menu_path):
             menu_data = _load_menu_file(menu_path)
-            if menu_data is None or not self.package_name:
+            if menu_data is None:
                 return
 
             expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(self.package_name)
@@ -212,7 +223,10 @@ class CheckCommandPaletteSettingsEntry(FileChecker):
         if not self.package_name:
             return
 
-        settings_files = sorted(self.glob("**/*.sublime-settings"))
+        settings_files = _find_package_settings_files(
+            sorted(self.glob("**/*.sublime-settings")),
+            self.package_name,
+        )
         if not settings_files:
             return
 
@@ -253,6 +267,46 @@ class CheckCommandPaletteSettingsEntry(FileChecker):
             if all(not entry.get('args', {}).get('default') for entry in matching_entries):
                 self.notice("Tip: add 'args.default' to the 'Default.sublime-commands' "
                             "settings entry. A minimal default is \"{}\".")
+
+
+class CheckSyntaxSettingsEntries(FileChecker):
+
+    NOTICE = (
+        "Package defines syntax settings. Consider adding an entry in "
+        "'Main.sublime-menu' and 'Default.sublime-commands' to help users "
+        "find or customize them."
+    )
+
+    def check(self):
+        syntax_settings_files = _find_syntax_settings_files(
+            sorted(self.glob("**/*.sublime-settings")),
+        )
+        if not syntax_settings_files:
+            return
+
+        if (
+            self._has_main_menu_entry(syntax_settings_files)
+            and self._has_command_palette_entry(syntax_settings_files)
+        ):
+            return
+
+        self.notice(self.NOTICE)
+
+    def _has_main_menu_entry(self, syntax_settings_files):
+        menu_path = _find_main_menu_path(self)
+        if menu_path is None:
+            return False
+
+        menu_data = _load_menu_file(menu_path)
+        return _has_edit_settings_entry_for_files(self, menu_data, syntax_settings_files)
+
+    def _has_command_palette_entry(self, syntax_settings_files):
+        commands_path = self.sub_path("Default.sublime-commands")
+        if not commands_path.is_file():
+            return False
+
+        commands = _load_menu_file(commands_path)
+        return _has_edit_settings_entry_for_files(self, commands, syntax_settings_files)
 
 
 class CheckKeymapMenuEntry(FileChecker):
@@ -426,6 +480,46 @@ def _find_base_file_values(entries):
         else:
             missing_count += 1
     return sorted(found_base_files), missing_count
+
+
+def _find_package_settings_files(settings_files, package_name):
+    expected_name = "{}.sublime-settings".format(package_name)
+    return [path for path in settings_files if path.name == expected_name]
+
+
+def _find_syntax_settings_files(settings_files):
+    return [path for path in settings_files if _is_syntax_settings_file(path)]
+
+
+def _is_syntax_settings_file(path):
+    return any(
+        path.with_suffix(suffix).is_file()
+        for suffix in (".sublime-syntax", ".tmLanguage")
+    )
+
+
+def _has_edit_settings_entry_for_files(file_checker, data, settings_files):
+    expected_base_files = _resource_paths_for_files(file_checker, settings_files)
+    for node in _iter_menu_nodes(data):
+        if not isinstance(node, dict) or node.get('command') != 'edit_settings':
+            continue
+
+        args = node.get('args')
+        if isinstance(args, dict) and args.get('base_file') in expected_base_files:
+            return True
+
+    return False
+
+
+def _resource_paths_for_files(file_checker, paths):
+    if not file_checker.package_name:
+        return set()
+
+    prefix = "${{packages}}/{}/".format(file_checker.package_name)
+    return {
+        prefix + file_checker.rel_path(path).as_posix()
+        for path in paths
+    }
 
 
 def _find_command_palette_edit_settings_entries(commands):

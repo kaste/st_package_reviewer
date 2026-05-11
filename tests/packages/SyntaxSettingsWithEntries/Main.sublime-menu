@@ -1,0 +1,25 @@
+[
+    {
+        "caption": "Preferences",
+        "children": [
+            {
+                "caption": "Package Settings",
+                "children": [
+                    {
+                        "caption": "GitSavvy",
+                        "children": [
+                            {
+                                "caption": "Blame Settings",
+                                "command": "edit_settings",
+                                "args": {
+                                    "base_file": "${packages}/GitSavvy/blame.sublime-settings",
+                                    "default": "{}"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]

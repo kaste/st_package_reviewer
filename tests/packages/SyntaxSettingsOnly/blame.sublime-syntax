@@ -1,0 +1,6 @@
+%YAML 1.2
+---
+name: GitSavvy Blame
+scope: text.git-savvy-blame
+contexts:
+  main: []

@@ -1,2 +1,2 @@
-- No standard settings file matches the package name 'File Browser'. Found: Other.sublime-settings
-    Expected file: File Browser.sublime-settings
+- You define 'Other.sublime-settings' but 'Other' is neither your package name nor the name of a syntax you ship.
+    File: Other.sublime-settings
