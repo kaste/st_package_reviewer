@@ -74,14 +74,29 @@ class CheckKeymaps(FileChecker):
             del k_map.data[i]
 
     def _check_broad_bindings(self, k_map):
-        for binding in k_map.data:
-            if _has_specific_context(binding):
-                continue
+        broad_bindings = [
+            binding for binding in k_map.data
+            if not _has_specific_context(binding)
+        ]
+        if broad_bindings:
+            self.fail(_broad_bindings_message(broad_bindings))
 
-            self.fail(_broad_binding_message(binding))
+
+def _broad_bindings_message(bindings):
+    if len(bindings) == 1:
+        return _single_broad_binding_message(bindings[0])
+
+    return (
+        "Multiple bindings, e.g. {}, {} Packages should only ship key "
+        "bindings that use a specific context such as 'selector', "
+        "'setting.*', or a custom context key. If these bindings define main "
+        "entry-points to your package, move them to an example keymap instead "
+        "so users can decide on their own."
+        .format(_format_binding_examples(bindings), _broad_bindings_issue(bindings))
+    )
 
 
-def _broad_binding_message(binding):
+def _single_broad_binding_message(binding):
     context_keys = _context_keys(binding)
     if context_keys:
         intro = "The binding {} only uses broad context keys: {}.".format(
@@ -96,6 +111,22 @@ def _broad_binding_message(binding):
         "to an example keymap instead so users can decide on their own."
         .format(intro)
     )
+
+
+def _broad_bindings_issue(bindings):
+    context_key_lists = [_context_keys(binding) for binding in bindings]
+    if all(not context_keys for context_keys in context_key_lists):
+        return "have no context."
+    if all(context_keys for context_keys in context_key_lists):
+        return "only use broad context keys."
+    return "have no context or only use broad context keys."
+
+
+def _format_binding_examples(bindings):
+    examples = [repr(binding['keys']) for binding in bindings[:2]]
+    if len(examples) == 1:
+        return examples[0]
+    return "{} and {}".format(examples[0], examples[1])
 
 
 def _context_keys(binding):

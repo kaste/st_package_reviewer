@@ -1,11 +1,7 @@
 [
   {
     "keys": ["ctrl+alt+f20"],
-    "command": "noop",
-    "context": [
-      {"key": "num_selections", "operator": "equal", "operand": 1},
-      {"key": "selection_empty", "operator": "equal", "operand": true}
-    ]
+    "command": "noop"
   },
   {
     "keys": ["ctrl+alt+f19"],

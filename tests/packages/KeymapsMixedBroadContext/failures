@@ -1,0 +1,2 @@
+- Multiple bindings, e.g. ['ctrl+alt+f20'] and ['ctrl+alt+f19'], have no context or only use broad context keys. Packages should only ship key bindings that use a specific context such as 'selector', 'setting.*', or a custom context key. If these bindings define main entry-points to your package, move them to an example keymap instead so users can decide on their own.
+    File: Default.sublime-keymap

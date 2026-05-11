@@ -1,2 +1,2 @@
-- The binding ['ctrl+alt+f20'] only uses broad context keys: num_selections, selection_empty. Packages should only ship key bindings that use a specific context such as 'selector', 'setting.*', or a custom context key. If the binding defines a main entry-point to your package, move it to an example keymap instead so users can decide on their own.
+- Multiple bindings, e.g. ['ctrl+alt+f20'] and ['ctrl+alt+f19'], only use broad context keys. Packages should only ship key bindings that use a specific context such as 'selector', 'setting.*', or a custom context key. If these bindings define main entry-points to your package, move them to an example keymap instead so users can decide on their own.
     File: Default.sublime-keymap
