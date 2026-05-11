@@ -1,20 +1,14 @@
 import json
 import logging
-import re
-from pathlib import Path
 
 from ...lib import jsonc
 from . import FileChecker
-
-from ... import __file__ as base_init_path
-
-
-DATA_PATH = Path(base_init_path).parent / "data"
 
 PLATFORMS = ("Linux", "OSX", "Windows")
 PLATFORM_FILENAMES = tuple("Default ({}).sublime-keymap".format(plat)
                            for plat in PLATFORMS)
 VALID_FILENAMES = PLATFORM_FILENAMES + ("Default.sublime-keymap",)
+BROAD_CONTEXT_KEYS = {"num_selections", "selection_empty"}
 
 l = logging.getLogger(__name__)
 
@@ -31,37 +25,12 @@ class CheckKeymaps(FileChecker):
         if not keymap_files:
             return
 
-        # cache default keymap files
-        def_maps = KeyMapping.default_maps()
-
-        # check for conflicts with default package
         for path in keymap_files:
-            platforms = PLATFORMS
-            m = re.search(r"\((.*?)\)", path.name)
-            if m:
-                platforms = {m.group(1)}
-
             k_map = KeyMapping(path)
 
             with self.file_context(path):
                 self._verify_keymap(k_map)
-
-                conflicts = []
-                for plat in platforms:
-                    local_conflicts = k_map.find_conflicts(def_maps[plat])
-                    l.debug("#conflicts for %s on platform %s: %d",
-                            self.rel_path(k_map.path), plat, len(local_conflicts))
-                    # prevent duplicates while maintaining order
-                    for conflict in local_conflicts:
-                        if conflict not in conflicts:
-                            conflicts.append(conflict)
-
-                for conflict in conflicts:
-                    if conflict.get('context'):
-                        continue
-
-                    self.fail("The binding {} unconditionally overrides a default binding"
-                              .format(conflict['keys']))
+                self._check_broad_bindings(k_map)
 
     def _verify_keymap(self, k_map):
         allowed_keys = {'keys', 'command', 'args', 'context'}
@@ -104,37 +73,47 @@ class CheckKeymaps(FileChecker):
         for i in sorted(idx_to_del, reverse=True):
             del k_map.data[i]
 
+    def _check_broad_bindings(self, k_map):
+        for binding in k_map.data:
+            if _has_specific_context(binding):
+                continue
+
+            self.fail(
+                "The binding {} is global or only uses broad context keys. "
+                "Loaded key bindings must use a specific context such as "
+                "'selector', 'setting.*', or a custom context key. Otherwise "
+                "move it to an example keymap."
+                .format(binding['keys'])
+            )
+
+
+def _has_specific_context(binding):
+    context = binding.get('context')
+    if isinstance(context, dict):
+        context = (context,)
+    if not context:
+        return False
+
+    return any(_is_specific_context_clause(clause) for clause in context)
+
+
+def _is_specific_context_clause(clause):
+    if not isinstance(clause, dict):
+        return False
+
+    key = clause.get('key')
+    return isinstance(key, str) and key not in BROAD_CONTEXT_KEYS
+
+
 class KeyMappingError(ValueError):
     pass
 
 
 class KeyMapping:
 
-    _def_maps = None
-
-    @classmethod
-    def default_maps(cls):
-        if not cls._def_maps:
-            cls._def_maps = {plat: cls(DATA_PATH / fname)
-                             for plat, fname in zip(PLATFORMS, PLATFORM_FILENAMES)}
-            # Verify and normalize default maps
-            for k_map in cls._def_maps.values():
-                k_map._verify()
-
-        return cls._def_maps
-
     def __init__(self, path):
         self.path = path
         self.data = self._load(path)
-
-    def find_conflicts(self, other):
-        # TODO two-part bindings conflict with single bindings and vice versa
-        return [binding for binding in self.data
-                if other.get_for_chords(binding['keys'])]
-
-    def get_for_chords(self, chords):
-        return [binding for binding in self.data
-                if binding['keys'] == chords]
 
     @classmethod
     def _load(cls, path):

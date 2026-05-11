@@ -1,2 +1,1 @@
 - Package defines '.sublime-settings' files but is missing 'Main.sublime-menu' to add menu entries to edit them.
-- Package defines '.sublime-keymap' files but is missing 'Main.sublime-menu'

@@ -1,0 +1,2 @@
+- The binding ['ctrl+alt+f20'] is global or only uses broad context keys. Loaded key bindings must use a specific context such as 'selector', 'setting.*', or a custom context key. Otherwise move it to an example keymap.
+    File: Default.sublime-keymap

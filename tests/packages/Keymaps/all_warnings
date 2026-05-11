@@ -1,4 +1,3 @@
 - Binding defines supplementary keys {'extra_key'}
     File: Default.sublime-keymap
-    Binding: {"command": "noop", "extra_key": "ok", "keys": ["alt+x"]}
-- Package defines '.sublime-keymap' files but is missing 'Main.sublime-menu'
+    Binding: {"command": "noop", "context": [{"key": "selector", "operand": "source"}], "extra_key": "ok", "keys": ["alt+x"]}

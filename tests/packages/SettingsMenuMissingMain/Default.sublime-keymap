@@ -1,3 +1,7 @@
 [
-  {"keys": ["ctrl+alt+f20"], "command": "noop"}
+  {
+    "keys": ["ctrl+alt+f20"],
+    "command": "noop",
+    "context": [{"key": "selector", "operand": "source"}]
+  }
 ]

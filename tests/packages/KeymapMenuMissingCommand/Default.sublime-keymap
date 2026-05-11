@@ -1,6 +1,7 @@
 [
   {
     "keys": ["ctrl+alt+f20"],
-    "command": "noop"
+    "command": "noop",
+    "context": [{"key": "selector", "operand": "source"}]
   }
 ]

@@ -13,18 +13,18 @@
   },
 
   // bindings with upper case letters. First is valid, second is not
-  { "keys": ["Ü"], "command": "hurf_durf" },
+  { "keys": ["Ü"], "command": "hurf_durf", "context": [{"key": "selector", "operand": "source"}] },
   { "keys": ["ctrl+Ü"], "command": "hurf_durf" },
 
   // bindings with modifiers as keys; we disallow the first
   { "keys": ["ctrl"], "command": "hurf_durf" },
-  { "keys": ["ctrl", "alt"], "command": "hurf_durf" },
+  { "keys": ["ctrl", "alt"], "command": "hurf_durf", "context": [{"key": "selector", "operand": "source"}] },
 
   // invalid bindings
   { "keys": ["ctrl+x"] },
   { "command": "lolk" },
   // binding with supplementary keys
-  { "keys": ["alt+x"], "command": "noop", "extra_key": "ok" },
+  { "keys": ["alt+x"], "command": "noop", "extra_key": "ok", "context": [{"key": "selector", "operand": "source"}] },
   // invalid keys value
   { "keys": "alts+x", "command": "noop" },
   // invalid modifier
@@ -32,8 +32,8 @@
   // invalid key in multi-chord
   { "keys": ["ctrl+k", "nope"], "command": "noop" },
   // valid key binding
-  { "keys": ["super+ctrl+alt+shift++"], "command": "noop" },
-  { "keys": ["primary+shift+1"], "command": "noop" },
+  { "keys": ["super+ctrl+alt+shift++"], "command": "noop", "context": [{"key": "selector", "operand": "source"}] },
+  { "keys": ["primary+shift+1"], "command": "noop", "context": [{"key": "selector", "operand": "source"}] },
 
   // <character> bindings must have a context
   { "keys": ["<character>"], "command": "noop" },
