@@ -3,6 +3,7 @@ import pytest
 from gh_action.action import (
     DEFAULT_REVIEW_ST_BUILD,
     parse_sublime_text_min,
+    resolve_package_platforms,
     resolve_package_required_st_build,
 )
 
@@ -59,3 +60,35 @@ def test_resolve_package_required_st_build_defaults_when_unspecified():
     }
 
     assert resolve_package_required_st_build(package_definition) == DEFAULT_REVIEW_ST_BUILD
+
+
+def test_resolve_package_platforms_defaults_to_all():
+    package_definition = {
+        "releases": [
+            {"url": "https://example.com/pkg.zip"},
+        ],
+    }
+
+    assert resolve_package_platforms(package_definition) == ("all",)
+
+
+def test_resolve_package_platforms_normalizes_sub_platforms():
+    package_definition = {
+        "releases": [
+            {"platforms": ["windows-x64", "linux"]},
+            {"platforms": "linux-x64"},
+        ],
+    }
+
+    assert resolve_package_platforms(package_definition) == ("windows", "linux")
+
+
+def test_resolve_package_platforms_all_wins():
+    package_definition = {
+        "releases": [
+            {"platforms": ["windows"]},
+            {"platforms": ["*"]},
+        ],
+    }
+
+    assert resolve_package_platforms(package_definition) == ("all",)

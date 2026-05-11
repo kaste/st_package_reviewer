@@ -104,8 +104,8 @@ def test_reviewer_integration(package_path, check_runner):
     If all failures or warnings should be compared,
     specify them in "all_failures" and "all_warnings".
 
-    A package can optionally define a "package_name" metadata file. If present,
-    its content is passed to file checkers as the proposed registry package name.
+    A package can optionally define metadata files. If present, their content is
+    passed to file checkers.
     """
     check_kwargs = {}
     package_name_file = Path(package_path, "package_name")
@@ -115,6 +115,10 @@ def test_reviewer_integration(package_path, check_runner):
     st_build_file = Path(package_path, "st_build")
     if st_build_file.is_file():
         check_kwargs["st_build"] = int(st_build_file.read_text(encoding='utf-8').strip())
+
+    platforms_file = Path(package_path, "platforms")
+    if platforms_file.is_file():
+        check_kwargs["platforms"] = platforms_file.read_text(encoding='utf-8').strip()
 
     # Run checks first and report them to stdout,
     # so we have something to inspect when the test fails.

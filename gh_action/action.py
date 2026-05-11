@@ -15,6 +15,8 @@ import tempfile
 from urllib.parse import unquote, urlparse
 import zipfile
 
+from st_package_reviewer.platforms import format_platforms, normalize_platforms
+
 
 DEFAULT_REVIEW_ST_BUILD = 4180
 STAR_SELECTOR_MIN_BUILD = 4000
@@ -159,8 +161,13 @@ def main(argv: list[str] | None = None) -> None:
 
             package_definition = head_packages.get(pkg)
             required_st_build = resolve_package_required_st_build(package_definition)
+            supported_platforms = resolve_package_platforms(package_definition)
             console.write(
                 f"Resolved required ST build for review: >= {required_st_build}"
+            )
+            console.write(
+                "Resolved platforms for review: "
+                f"{format_platforms(supported_platforms)}"
             )
 
             review_repo_args: list[str] = []
@@ -265,6 +272,8 @@ def main(argv: list[str] | None = None) -> None:
                         pkg,
                         "--st-build",
                         str(required_st_build),
+                        "--platforms",
+                        format_platforms(supported_platforms),
                         *review_repo_args,
                         str(topdir),
                         cwd=root_dir,
@@ -426,6 +435,27 @@ def parse_int_prefix(value: str) -> int | None:
         return int(match.group(0))
     except ValueError:
         return None
+
+
+def resolve_package_platforms(package_definition: dict[str, object] | None) -> tuple[str, ...]:
+    if not isinstance(package_definition, dict):
+        return ("all",)
+
+    releases = package_definition.get("releases")
+    if not isinstance(releases, list):
+        return ("all",)
+
+    platforms: list[str] = []
+    for release in releases:
+        if not isinstance(release, dict):
+            continue
+
+        release_platforms = normalize_platforms(release.get("platforms", "all"))
+        if "all" in release_platforms:
+            return ("all",)
+        platforms.extend(release_platforms)
+
+    return normalize_platforms(platforms)
 
 
 def check_pkg_crawl_mode(

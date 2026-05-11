@@ -96,8 +96,10 @@ For package/plugin repositories (no channel/registry diff), use the dedicated ac
   - Resolves the package's required `sublime_text` build from registry metadata
     (max parsed minimum across package/release selectors, defaulting to 4180 when
     unspecified; `*` is treated as >=4000).
-  - Unpacks each zip and runs
-    `uv run st_package_reviewer --st-build <resolved-build> <extracted_dir>`.
+  - Resolves Package Control `platforms` metadata and normalizes sub-platforms
+    such as `windows-x64` to `windows` before passing it to the reviewer.
+  - Unpacks each zip and runs `uv run st_package_reviewer --st-build
+    <resolved-build> --platforms <resolved-platforms> <extracted_dir>`.
   - Aggregates failures and fails the job if any occurred.
 
 ## Run locally

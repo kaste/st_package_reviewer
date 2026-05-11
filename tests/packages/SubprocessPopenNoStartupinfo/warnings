@@ -1,0 +1,3 @@
+- subprocess.Popen is used in a Windows-supported package without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows.
+    File: plugin.py
+    Line: 3, Column: 1

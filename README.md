@@ -81,8 +81,9 @@ $ pip install git+https://github.com/kaste/st_package_reviewer.git@<TAG_OR_SHA>
 ```
 usage: st_package_reviewer [-h] [--version] [--clip] [--repo-only]
                            [--package-name PACKAGE_NAME] [--repo [REPO]]
-                           [--st-build ST_BUILD] [-w] [--compact] [-v]
-                           [--debug] [path_or_URL [path_or_URL ...]]
+                           [--st-build ST_BUILD] [--platforms PLATFORMS]
+                           [-w] [--compact] [-v] [--debug]
+                           [path_or_URL [path_or_URL ...]]
 
 Check a Sublime Text package for common errors.
 
@@ -102,6 +103,9 @@ optional arguments:
                         Default: current directory (.).
   --st-build ST_BUILD   Minimum required Sublime Text build.
                         Default: 4180.
+  --platforms PLATFORMS
+                        Comma-separated supported platforms. Use 'all' for all
+                        platforms. Default: all.
   -w, --fail-on-warnings
                         Return a non-zero exit code for warnings as well.
   --compact             Reduce output verbosity.
