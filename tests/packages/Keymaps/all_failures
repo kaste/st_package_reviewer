@@ -13,13 +13,13 @@
 - Invalid key 'nope'
     File: Default.sublime-keymap
     Binding: {"command": "noop", "keys": ["ctrl+k", "nope"]}
-- The binding ['ctrl+b'] is global or only uses broad context keys. Loaded key bindings must use a specific context such as 'selector', 'setting.*', or a custom context key. Otherwise move it to an example keymap.
+- The binding ['ctrl+b'] has no context. Packages should only ship key bindings that use a specific context such as 'selector', 'setting.*', or a custom context key. If the binding defines a main entry-point to your package, move it to an example keymap instead so users can decide on their own.
     File: Default.sublime-keymap
-- The binding ['super+alt+v'] is global or only uses broad context keys. Loaded key bindings must use a specific context such as 'selector', 'setting.*', or a custom context key. Otherwise move it to an example keymap.
+- The binding ['super+alt+v'] has no context. Packages should only ship key bindings that use a specific context such as 'selector', 'setting.*', or a custom context key. If the binding defines a main entry-point to your package, move it to an example keymap instead so users can decide on their own.
     File: Default (OSX).sublime-keymap
-- The binding ['super+alt+up'] is global or only uses broad context keys. Loaded key bindings must use a specific context such as 'selector', 'setting.*', or a custom context key. Otherwise move it to an example keymap.
+- The binding ['super+alt+up'] has no context. Packages should only ship key bindings that use a specific context such as 'selector', 'setting.*', or a custom context key. If the binding defines a main entry-point to your package, move it to an example keymap instead so users can decide on their own.
     File: Default (OSX).sublime-keymap
-- The binding ['super+alt+s'] is global or only uses broad context keys. Loaded key bindings must use a specific context such as 'selector', 'setting.*', or a custom context key. Otherwise move it to an example keymap.
+- The binding ['super+alt+s'] has no context. Packages should only ship key bindings that use a specific context such as 'selector', 'setting.*', or a custom context key. If the binding defines a main entry-point to your package, move it to an example keymap instead so users can decide on their own.
     File: Default (OSX).sublime-keymap
 - '<character>' bindings must have a 'context'
     File: Default.sublime-keymap

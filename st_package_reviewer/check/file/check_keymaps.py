@@ -78,13 +78,37 @@ class CheckKeymaps(FileChecker):
             if _has_specific_context(binding):
                 continue
 
-            self.fail(
-                "The binding {} is global or only uses broad context keys. "
-                "Loaded key bindings must use a specific context such as "
-                "'selector', 'setting.*', or a custom context key. Otherwise "
-                "move it to an example keymap."
-                .format(binding['keys'])
-            )
+            self.fail(_broad_binding_message(binding))
+
+
+def _broad_binding_message(binding):
+    context_keys = _context_keys(binding)
+    if context_keys:
+        intro = "The binding {} only uses broad context keys: {}.".format(
+            binding['keys'], ", ".join(context_keys))
+    else:
+        intro = "The binding {} has no context.".format(binding['keys'])
+
+    return (
+        "{} Packages should only ship key bindings that use a specific "
+        "context such as 'selector', 'setting.*', or a custom context key. "
+        "If the binding defines a main entry-point to your package, move it "
+        "to an example keymap instead so users can decide on their own."
+        .format(intro)
+    )
+
+
+def _context_keys(binding):
+    context = binding.get('context')
+    if isinstance(context, dict):
+        context = (context,)
+    if not context:
+        return []
+
+    return [
+        clause.get('key') for clause in context
+        if isinstance(clause, dict) and isinstance(clause.get('key'), str)
+    ]
 
 
 def _has_specific_context(binding):
