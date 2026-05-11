@@ -45,6 +45,8 @@ class FileChecker(Checker):
             path = self.rel_path(path)
         except ValueError:
             pass
+        if isinstance(path, Path):
+            path = path.as_posix()
         return self.context("File: {}".format(path))
 
 

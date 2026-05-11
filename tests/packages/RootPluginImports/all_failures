@@ -1,0 +1,9 @@
+- Do not import root-level plugin module '.helpers'. Sublime Text loads root-level Python files as independent plugins; move shared code into a subpackage.
+    File: plugin.py
+    Line: 1, Column: 1
+- Do not import root-level plugin module '.chatprocessor'. Sublime Text loads root-level Python files as independent plugins; move shared code into a subpackage.
+    File: plugin.py
+    Line: 2, Column: 1
+- Do not import root-level plugin module '.helpers'. Sublime Text loads root-level Python files as independent plugins; move shared code into a subpackage.
+    File: core/check.py
+    Line: 1, Column: 1
