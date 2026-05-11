@@ -1,0 +1,2 @@
+- Tip: add 'args.default' to the 'Default.sublime-commands' settings entry. A minimal default is "{}".
+    File: Default.sublime-commands

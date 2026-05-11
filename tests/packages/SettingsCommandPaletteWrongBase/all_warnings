@@ -1,0 +1,2 @@
+- 'Default.sublime-commands' has no settings entry with 'args.base_file' set to '${packages}/PaletteSettings/PaletteSettings.sublime-settings'. Found: ${packages}/PaletteSettings/Other.sublime-settings
+    File: Default.sublime-commands

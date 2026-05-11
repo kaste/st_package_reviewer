@@ -1,2 +1,3 @@
+- Package defines '.sublime-settings' files but is missing 'Default.sublime-commands' to add a Command Palette entry to edit them.
 - 'Main.sublime-menu' adds menu entries under 'Package Settings > Inline Git Blame'. We expect this to match the actual package name, e.g. 'Package Settings > InlineGitBlame'.
     File: Main.sublime-menu

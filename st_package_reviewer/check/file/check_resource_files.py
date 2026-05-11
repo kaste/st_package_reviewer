@@ -114,12 +114,16 @@ class CheckSettingsMenuEntry(FileChecker):
             expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(self.package_name)
             package_node = _find_package_settings_node(menu_data, self.package_name)
             if package_node is None:
-                self.warn(_missing_settings_package_entry_warning(menu_data,
-                                                                   self.package_name,
-                                                                   settings_files,
-                                                                   expected_base_file))
-                package_node = _find_package_settings_resource_node(menu_data,
-                                                                    self.package_name)
+                self.warn(_missing_settings_package_entry_warning(
+                    menu_data,
+                    self.package_name,
+                    settings_files,
+                    expected_base_file,
+                ))
+                package_node = _find_package_settings_resource_node(
+                    menu_data,
+                    self.package_name,
+                )
                 if package_node is None:
                     return
 
@@ -202,6 +206,55 @@ class CheckCommandPaletteEditSettingsCaption(FileChecker):
             )
 
 
+class CheckCommandPaletteSettingsEntry(FileChecker):
+
+    def check(self):
+        if not self.package_name:
+            return
+
+        settings_files = sorted(self.glob("**/*.sublime-settings"))
+        if not settings_files:
+            return
+
+        commands_path = self.sub_path("Default.sublime-commands")
+        if not commands_path.is_file():
+            self.warn("Package defines '.sublime-settings' files but is missing "
+                      "'Default.sublime-commands' to add a Command Palette entry "
+                      "to edit them.")
+            return
+
+        with self.file_context(commands_path):
+            commands = _load_menu_file(commands_path)
+            if not isinstance(commands, list):
+                return
+
+            expected_base_file = "${{packages}}/{0}/{0}.sublime-settings".format(
+                self.package_name)
+            settings_entries = _find_command_palette_edit_settings_entries(commands)
+            if not settings_entries:
+                self.warn("'Default.sublime-commands' has no settings entry using "
+                          "edit_settings for {!r}. Add an entry with caption "
+                          "'Preferences: {} Settings' and 'args.base_file' set "
+                          "to {!r}."
+                          .format(self.package_name, self.package_name, expected_base_file))
+                return
+
+            matching_entries = [
+                entry for entry in settings_entries
+                if entry.get('args', {}).get('base_file') == expected_base_file
+            ]
+            if not matching_entries:
+                self.warn(_missing_command_palette_base_file_warning(
+                    expected_base_file,
+                    settings_entries,
+                ))
+                return
+
+            if all(not entry.get('args', {}).get('default') for entry in matching_entries):
+                self.notice("Tip: add 'args.default' to the 'Default.sublime-commands' "
+                            "settings entry. A minimal default is \"{}\".")
+
+
 class CheckKeymapMenuEntry(FileChecker):
 
     def check(self):
@@ -222,10 +275,14 @@ class CheckKeymapMenuEntry(FileChecker):
 
             package_node = _find_package_settings_node(menu_data, self.package_name)
             if package_node is None:
-                self.warn(_missing_package_settings_entry_warning(menu_data,
-                                                                   self.package_name))
-                package_node = _find_package_settings_resource_node(menu_data,
-                                                                    self.package_name)
+                self.warn(_missing_package_settings_entry_warning(
+                    menu_data,
+                    self.package_name,
+                ))
+                package_node = _find_package_settings_resource_node(
+                    menu_data,
+                    self.package_name,
+                )
                 if package_node is None:
                     return
 
@@ -369,6 +426,29 @@ def _find_base_file_values(entries):
         else:
             missing_count += 1
     return sorted(found_base_files), missing_count
+
+
+def _find_command_palette_edit_settings_entries(commands):
+    return [
+        entry for entry in commands
+        if isinstance(entry, dict)
+        and entry.get('command') == 'edit_settings'
+        and _edit_settings_entry_kind(entry) == "settings"
+    ]
+
+
+def _missing_command_palette_base_file_warning(expected_base_file, entries):
+    found_base_files, missing_count = _find_base_file_values(entries)
+    if not found_base_files:
+        return ("'Default.sublime-commands' has no settings entry with "
+                "'args.base_file' set.")
+
+    message = ("'Default.sublime-commands' has no settings entry with "
+               "'args.base_file' set to {!r}. Found: {}"
+               .format(expected_base_file, ", ".join(found_base_files)))
+    if missing_count:
+        message += " (and {} without 'args.base_file')".format(missing_count)
+    return message
 
 
 def _format_expected_base_files(expected_base_files):

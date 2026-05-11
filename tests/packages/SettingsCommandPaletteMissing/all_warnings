@@ -1,0 +1,1 @@
+- Package defines '.sublime-settings' files but is missing 'Default.sublime-commands' to add a Command Palette entry to edit them.
