@@ -1,3 +1,4 @@
+import difflib
 import logging
 from pathlib import PurePosixPath
 import re
@@ -84,6 +85,7 @@ class CheckSettingsFileName(FileChecker):
             return
 
         expected_name = "{}.sublime-settings".format(self.package_name)
+        syntax_files = sorted(self.globs("**/*.sublime-syntax", "**/*.tmLanguage"))
         unexpected_settings = [
             path for path in settings_files
             if path.name != expected_name and not _is_syntax_settings_file(path)
@@ -93,9 +95,11 @@ class CheckSettingsFileName(FileChecker):
 
         for path in unexpected_settings:
             with self.file_context(path):
-                self.warn("You define {!r} but {!r} is neither your package "
-                          "name nor the name of a syntax you ship."
-                          .format(path.name, path.stem))
+                self.warn(_unexpected_settings_file_warning(
+                    path,
+                    self.package_name,
+                    syntax_files,
+                ))
 
 
 class CheckSettingsMenuEntry(FileChecker):
@@ -492,10 +496,80 @@ def _find_syntax_settings_files(settings_files):
 
 
 def _is_syntax_settings_file(path):
-    return any(
-        path.with_suffix(suffix).is_file()
-        for suffix in (".sublime-syntax", ".tmLanguage")
+    return _matching_syntax_file(path) is not None
+
+
+def _matching_syntax_file(path):
+    syntax_names = {
+        path.with_suffix(".sublime-syntax").name,
+        path.with_suffix(".tmLanguage").name,
+    }
+    return next(
+        (sibling for sibling in path.parent.iterdir() if sibling.name in syntax_names),
+        None,
     )
+
+
+def _unexpected_settings_file_warning(path, package_name, syntax_files):
+    message = (
+        "You define {!r} but {!r} is neither your package name nor the "
+        "name of a syntax you ship."
+        .format(path.name, path.stem)
+    )
+    suggestion = _suggest_settings_file_name(path, package_name, syntax_files)
+    if suggestion:
+        message += " Did you mean {!r}?".format(suggestion)
+    return message
+
+
+def _suggest_settings_file_name(path, package_name, syntax_files):
+    suggestion = _find_closest_settings_name(
+        path.stem,
+        _settings_name_candidates(path, package_name, syntax_files),
+    )
+    if suggestion is None:
+        return None
+
+    return "{}.sublime-settings".format(suggestion)
+
+
+def _settings_name_candidates(path, package_name, syntax_files):
+    candidates = [package_name]
+    candidates.extend(syntax_file.stem for syntax_file in syntax_files
+                      if syntax_file.parent == path.parent)
+    candidates.extend(syntax_file.stem for syntax_file in syntax_files
+                      if syntax_file.parent != path.parent)
+    return dict.fromkeys(candidates)
+
+
+def _find_closest_settings_name(name, candidates):
+    norm_name = _normalize_settings_name(name)
+    best_candidate = None
+    best_score = 0.0
+
+    for candidate in candidates:
+        if candidate == name:
+            continue
+
+        norm_candidate = _normalize_settings_name(candidate)
+        if norm_candidate == norm_name:
+            return candidate
+
+        score = max(
+            difflib.SequenceMatcher(None, name.casefold(), candidate.casefold()).ratio(),
+            difflib.SequenceMatcher(None, norm_name, norm_candidate).ratio(),
+        )
+        if score > best_score:
+            best_candidate = candidate
+            best_score = score
+
+    if best_score < 0.82:
+        return None
+    return best_candidate
+
+
+def _normalize_settings_name(name):
+    return re.sub(r"[\s_-]+", "", name).casefold()
 
 
 def _has_edit_settings_entry_for_files(file_checker, data, settings_files):

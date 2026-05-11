@@ -1,0 +1,6 @@
+%YAML 1.2
+---
+name: GitSavvy Tags
+scope: text.git-savvy-tags
+contexts:
+  main: []

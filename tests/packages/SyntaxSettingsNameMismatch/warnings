@@ -1,0 +1,2 @@
+- You define 'Tags.sublime-settings' but 'Tags' is neither your package name nor the name of a syntax you ship. Did you mean 'tags.sublime-settings'?
+    File: Tags.sublime-settings
