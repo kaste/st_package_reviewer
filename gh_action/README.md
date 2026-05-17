@@ -69,6 +69,18 @@ This second workflow:
 For package/plugin repositories (no channel/registry diff), use the dedicated action:
 [../gh_action_package/README.md](../gh_action_package/README.md)
 
+
+## Run locally
+
+Run the Python implementation with `uv`:
+
+```bash
+uv run python -u gh_action/action.py --pr https://github.com/sublimehq/package_control_channel/pull/9269
+```
+
+Note: use `-u` (or `PYTHONUNBUFFERED=1`) for stable, immediate log flushing.
+
+
 ## Notes
 
 - Right now, the maintained fork is `kaste/st_package_reviewer`; pin `@<PINNED_REF>` to a stable tag or commit SHA.
@@ -101,16 +113,4 @@ For package/plugin repositories (no channel/registry diff), use the dedicated ac
   - Unpacks each zip and runs `uv run st_package_reviewer --st-build
     <resolved-build> --platforms <resolved-platforms> <extracted_dir>`.
   - Aggregates failures and fails the job if any occurred.
-
-## Run locally
-
-Run the Python implementation with `uv`:
-
-```bash
-uv run python -u gh_action/action.py --pr https://github.com/sublimehq/package_control_channel/pull/9269
-```
-
-Note: use `-u` (or `PYTHONUNBUFFERED=1`) for stable, immediate log flushing.
-
-`gh_action/action.sh` is kept as a legacy reference only.
 
