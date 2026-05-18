@@ -385,9 +385,11 @@ class CheckKeymapMenuEntry(FileChecker):
         base_file = entry.get('args', {}).get('base_file')
         rel_path = _package_resource_path(base_file, self.package_name)
         if rel_path is None:
-            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry whose "
-                      "'args.base_file' does not reference this package: {}"
-                      .format(base_file))
+            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry with "
+                      "'args.base_file' set to {}, but this package will be "
+                      "installed under ${{packages}}/{}/. Use the exact package "
+                      "name after ${{packages}}/."
+                      .format(base_file, self.package_name))
             return
 
         if _is_platform_keymap(rel_path):

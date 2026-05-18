@@ -1,0 +1,2 @@
+- 'Main.sublime-menu' has a 'Key Bindings' entry with 'args.base_file' set to ${packages}/copy_python_import/Default ($platform).sublime-keymap, but this package will be installed under ${packages}/Copy Python Import/. Use the exact package name after ${packages}/.
+    File: Main.sublime-menu
