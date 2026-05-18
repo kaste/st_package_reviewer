@@ -289,7 +289,6 @@ def main(argv: list[str] | None = None) -> None:
                     pkg,
                     display_ver,
                     raw,
-                    repo_url if tags_mode else "",
                 )
 
                 if review.returncode != 0:
@@ -332,18 +331,13 @@ def append_package_review(
     package_name: str,
     display_version: str,
     raw_review: str,
-    repo_url: str = "",
 ) -> None:
+    formatted_review = re.sub(r"\$(?!\{)", "<span>$</span>", raw_review.rstrip("\n"))
+
     with review_md.open("a", encoding="utf-8") as f:
         f.write(f"## Review for {package_name} {display_version}\n\n")
-        f.write("```\n")
-        f.write(raw_review)
-        if not raw_review.endswith("\n"):
-            f.write("\n")
-        f.write("```\n")
-        if repo_url:
-            f.write(f"Repository: {repo_url}\n")
-        f.write("\n")
+        f.write(formatted_review)
+        f.write("\n\n")
 
 
 def parse_workspace_release(workspace: Path, package_name: str) -> dict[str, str] | None:

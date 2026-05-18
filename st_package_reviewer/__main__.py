@@ -164,6 +164,8 @@ def main(args=None):
             if not args.compact:
                 _report_for(path.name, out)
                 l.info("Package path: %s", path)
+            if args.repo is not None:
+                _report_repository(args.repo, out, trailing_blank=not args.compact)
 
         file_check_kwargs = {}
         if args.package_name:
@@ -238,6 +240,12 @@ def _report_for(name, file):
     print(file=file)
     print("##", "Report for", name, "#" * (40 - len(name)), file=file)
     print(file=file)
+
+
+def _report_repository(repo, file, trailing_blank=True):
+    print("- Repository is at {}".format(repo), file=file)
+    if trailing_blank:
+        print(file=file)
 
 
 def _run_checks(checkers, file, args=[], kwargs={}, fail_on_warnings=False, compact=False):
