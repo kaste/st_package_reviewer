@@ -428,24 +428,40 @@ class CheckKeymapMenuEntry(FileChecker):
                       .format(base_file, _format_rel_paths(missing_paths)))
 
     def _check_keymap_user_file(self, entry, rel_path):
-        user_file = entry.get('args', {}).get('user_file')
+        args = entry.get('args', {})
+        user_file = args.get('user_file')
         if user_file == USER_PLATFORM_KEYMAP:
             return
 
+        has_user_file = 'user_file' in args
         if _is_default_keymap(rel_path):
-            message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
-                       "Default.sublime-keymap without 'args.user_file' set to "
-                       "{!r}.".format(USER_PLATFORM_KEYMAP))
+            if has_user_file:
+                message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
+                           "Default.sublime-keymap with 'args.user_file' set to "
+                           "{}. Use {!r} instead."
+                           .format(user_file, USER_PLATFORM_KEYMAP))
+            else:
+                message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
+                           "Default.sublime-keymap, but 'args.user_file' is "
+                           "missing. Set it to {!r}."
+                           .format(USER_PLATFORM_KEYMAP))
         else:
-            message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
-                       "{!r} without 'args.user_file' set. For non-standard "
-                       "keymap names this is required because edit_settings "
-                       "will otherwise create that filename in User, but "
-                       "Sublime Text will not load it. Set 'args.user_file' "
-                       "to {!r}."
-                       .format(rel_path.name, USER_PLATFORM_KEYMAP))
-        if user_file:
-            message += " Found: {}".format(user_file)
+            if has_user_file:
+                message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
+                           "{!r} with 'args.user_file' set to {}. For "
+                           "non-standard keymap names this is required because "
+                           "edit_settings will otherwise create that filename "
+                           "in User, but Sublime Text will not load it. Use "
+                           "{!r} instead."
+                           .format(rel_path.name, user_file, USER_PLATFORM_KEYMAP))
+            else:
+                message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
+                           "{!r}, but 'args.user_file' is missing. For "
+                           "non-standard keymap names this is required because "
+                           "edit_settings will otherwise create that filename "
+                           "in User, but Sublime Text will not load it. Set it "
+                           "to {!r}."
+                           .format(rel_path.name, USER_PLATFORM_KEYMAP))
         self.fail(message)
 
 

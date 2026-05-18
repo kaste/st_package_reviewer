@@ -1,2 +1,2 @@
-- 'Main.sublime-menu' has a 'Key Bindings' entry for 'Default (File Browser).sublime-keymap' without 'args.user_file' set. For non-standard keymap names this is required because edit_settings will otherwise create that filename in User, but Sublime Text will not load it. Set 'args.user_file' to '${packages}/User/Default (${platform}).sublime-keymap'.
+- 'Main.sublime-menu' has a 'Key Bindings' entry for 'Default (File Browser).sublime-keymap', but 'args.user_file' is missing. For non-standard keymap names this is required because edit_settings will otherwise create that filename in User, but Sublime Text will not load it. Set it to '${packages}/User/Default (${platform}).sublime-keymap'.
     File: Main.sublime-menu

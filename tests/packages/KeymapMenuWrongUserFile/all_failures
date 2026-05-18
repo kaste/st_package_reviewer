@@ -1,0 +1,2 @@
+- 'Main.sublime-menu' has a 'Key Bindings' entry for Default.sublime-keymap with 'args.user_file' set to ${packages}/User/Default.sublime-keymap. Use '${packages}/User/Default (${platform}).sublime-keymap' instead.
+    File: Main.sublime-menu
