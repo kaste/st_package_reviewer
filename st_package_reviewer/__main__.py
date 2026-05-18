@@ -182,10 +182,6 @@ def main(args=None):
         return exit_code
 
     def _finalize_report():
-        print(file=out)
-        print("For more details on the report messages (for example how to resolve them), go to:"
-              "\nhttps://github.com/packagecontrol/st_package_reviewer/wiki", file=out)
-        print(file=out)
         report = out.getvalue()
         print(report, end='')
 
