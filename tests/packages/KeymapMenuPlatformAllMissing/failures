@@ -1,2 +1,2 @@
-- 'Main.sublime-menu' has a 'Key Bindings' entry whose 'args.base_file' does not match any platform keymap files: ${packages}/File Browser/keymaps/Default (${platform}).sublime-keymap
+- 'Main.sublime-menu' has a 'Key Bindings' entry with 'args.base_file' set to ${packages}/File Browser/keymaps/Default (${platform}).sublime-keymap, but no platform-specific keymap files exist. Add one for each platform you want to support: keymaps/Default (Linux).sublime-keymap, keymaps/Default (OSX).sublime-keymap, keymaps/Default (Windows).sublime-keymap
     File: Main.sublime-menu

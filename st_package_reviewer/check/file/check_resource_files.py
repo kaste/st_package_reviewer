@@ -416,9 +416,11 @@ class CheckKeymapMenuEntry(FileChecker):
         missing_paths = [path for path in platform_keymap_paths if path not in existing_paths]
 
         if not existing_paths:
-            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry whose "
-                      "'args.base_file' does not match any platform keymap files: {}"
-                      .format(base_file))
+            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry with "
+                      "'args.base_file' set to {}, but no platform-specific "
+                      "keymap files exist. Add one for each platform you want "
+                      "to support: {}"
+                      .format(base_file, _format_rel_paths(platform_keymap_paths)))
             return
 
         if missing_paths:
