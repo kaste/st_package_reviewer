@@ -83,7 +83,7 @@ Note: use `-u` (or `PYTHONUNBUFFERED=1`) for stable, immediate log flushing.
 
 ## Notes
 
-- Right now, the maintained fork is `kaste/st_package_reviewer`; pin `@<PINNED_REF>` to a stable tag or commit SHA.
+- Right now, the maintained fork is `kaste/st_package_reviewer`; pin `@<PINNED_REF>` to a tag or commit SHA.
 - The action ensures `uv` is available via `astral-sh/setup-uv`. GitHub’s hosted runners include `gh` (GitHub CLI) by default.
 - If `thecrawl` is not provided, the action clones `https://github.com/packagecontrol/thecrawl`.
 - Network access is required to fetch raw files, zipballs, and the GitHub API. For GitHub zipball downloads, the action falls back to `gh api` if `curl` fails.

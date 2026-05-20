@@ -169,4 +169,5 @@ This repo uses [uv](https://github.com/astral-sh/uv) and targets Python 3.13.
 
 - Create a tag named `vX.Y.Z` (for example `v0.4.0`) for versioned releases.
 - This fork is currently not published on PyPI.
+- Per GitHub convention, update the tag `vX` to the latest subversion.  E.g. `v1` moves to `v.1.1.0`
 - For automation, prefer pinning GitHub Action usage to a tag or commit SHA.
