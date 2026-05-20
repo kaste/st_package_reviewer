@@ -1,0 +1,58 @@
+name: Action canary
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request URL to review with the candidate action
+        required: true
+        default: https://github.com/sublimehq/package_control_channel/pull/9425
+      file:
+        description: Channel JSON path within the pull request repository
+        required: true
+        default: repository.json
+      thecrawl:
+        description: thecrawl URL or ref to use
+        required: true
+        default: https://github.com/packagecontrol/thecrawl
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      # Before bumping Package Control Channel, push the reviewer candidate to
+      # the canary branch and dispatch this workflow, e.g.:
+      #
+      #   git push kaste HEAD:refs/heads/action-canary
+      #   gh workflow run action-canary.yml \
+      #     --repo kaste/st_package_reviewer \
+      #     -f pr=https://github.com/sublimehq/package_control_channel/pull/9425
+      #
+      # This deliberately uses a remote action ref instead of ./gh_action, so
+      # GitHub downloads the action as an archive without .git metadata, just as
+      # Package Control Channel will when it pins the reviewed commit.
+      - name: Run candidate action as a downloaded action
+        id: review
+        continue-on-error: true
+        uses: kaste/st_package_reviewer/gh_action@action-canary
+        with:
+          pr: ${{ inputs.pr }}
+          file: ${{ inputs.file }}
+          thecrawl: ${{ inputs.thecrawl }}
+
+      - name: Assert the action reached the review script
+        run: |
+          set -euo pipefail
+          test -s review.md
+          grep -Eq '^(This PR|No package changes\.|Channel changes:|Adds |Changes |Removes )' review.md
+
+      - name: Report package-review failure without failing bootstrap canary
+        if: steps.review.outcome == 'failure'
+        run: |
+          echo "::warning ::The action bootstrapped, but the review step returned failure."
+          echo "::warning ::Inspect review.md/artifacts to decide whether this is expected."
