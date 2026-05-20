@@ -54,6 +54,10 @@ runs:
       if: inputs.phase == 'review'
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
+        # GitHub downloads composite actions without the .git directory.  Provide
+        # a fallback version before `uv run` builds the project via hatch-vcs.
+        SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ST_PACKAGE_REVIEWER: "0.0.0"
+        SETUPTOOLS_SCM_PRETEND_VERSION: "0.0.0"
       shell: bash
       run: |
         set -euo pipefail
