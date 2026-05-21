@@ -165,6 +165,33 @@ This repo uses [uv](https://github.com/astral-sh/uv) and targets Python 3.13.
   - Review for older Sublime builds explicitly (legacy API-init constraints):
     `uv run st_package_reviewer --st-build 4169 /path/to/package`
 
+- Canary-test the GitHub Action against a real Package Control Channel PR before
+  updating upstream workflow refs:
+
+  ```bash
+  # Push the candidate reviewer commit to the remote canary ref.
+  git push kaste HEAD:refs/heads/action-canary --force-with-lease
+
+  # Run the canary with the concrete PR whose review output you want to inspect.
+  gh workflow run action-canary.yml \
+    --repo kaste/st_package_reviewer \
+    --ref main \
+    -f pr=https://github.com/sublimehq/package_control_channel/pull/REAL_PR_NUMBER
+  ```
+
+  Then watch the run and inspect the generated `review.md` artifact:
+
+  ```bash
+  gh run list --repo kaste/st_package_reviewer --workflow action-canary.yml --limit 1
+  gh run watch RUN_ID --repo kaste/st_package_reviewer
+  ```
+
+  The canary invokes `kaste/st_package_reviewer/gh_action@action-canary` as a
+  remote composite action, so GitHub downloads it as an action archive without
+  `.git` metadata, just like Package Control Channel will.  It exercises the real
+  review-generation phase for the supplied PR.  It does not test the follow-up
+  `workflow_run` comment-posting phase.
+
 ## Releases
 
 - Create a tag named `vX.Y.Z` (for example `v0.4.0`) for versioned releases.
