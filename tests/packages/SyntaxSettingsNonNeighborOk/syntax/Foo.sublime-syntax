@@ -1,0 +1,6 @@
+%YAML 1.2
+---
+name: Foo
+scope: source.foo
+contexts:
+  main: []

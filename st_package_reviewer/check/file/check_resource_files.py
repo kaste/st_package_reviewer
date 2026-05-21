@@ -88,7 +88,7 @@ class CheckSettingsFileName(FileChecker):
         syntax_files = sorted(self.globs("**/*.sublime-syntax", "**/*.tmLanguage"))
         unexpected_settings = [
             path for path in settings_files
-            if path.name != expected_name and not _is_syntax_settings_file(path)
+            if path.name != expected_name and not _is_syntax_settings_file(path, syntax_files)
         ]
         if not unexpected_settings:
             return
@@ -284,6 +284,7 @@ class CheckSyntaxSettingsEntries(FileChecker):
     def check(self):
         syntax_settings_files = _find_syntax_settings_files(
             sorted(self.glob("**/*.sublime-settings")),
+            sorted(self.globs("**/*.sublime-syntax", "**/*.tmLanguage")),
         )
         if not syntax_settings_files:
             return
@@ -511,21 +512,24 @@ def _find_package_settings_files(settings_files, package_name):
     return [path for path in settings_files if path.name == expected_name]
 
 
-def _find_syntax_settings_files(settings_files):
-    return [path for path in settings_files if _is_syntax_settings_file(path)]
+def _find_syntax_settings_files(settings_files, syntax_files):
+    return [
+        path for path in settings_files
+        if _is_syntax_settings_file(path, syntax_files)
+    ]
 
 
-def _is_syntax_settings_file(path):
-    return _matching_syntax_file(path) is not None
+def _is_syntax_settings_file(path, syntax_files):
+    return _matching_syntax_file(path, syntax_files) is not None
 
 
-def _matching_syntax_file(path):
+def _matching_syntax_file(path, syntax_files):
     syntax_names = {
         path.with_suffix(".sublime-syntax").name,
         path.with_suffix(".tmLanguage").name,
     }
     return next(
-        (sibling for sibling in path.parent.iterdir() if sibling.name in syntax_names),
+        (syntax_file for syntax_file in syntax_files if syntax_file.name in syntax_names),
         None,
     )
 
