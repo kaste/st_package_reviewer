@@ -98,4 +98,47 @@ runs:
 
         args+=("$INPUT_PATH")
 
-        uv run --project "${{ github.action_path }}/.." st_package_reviewer "${args[@]}"
+        parse_test_results() {
+          while IFS='' read -r line; do
+            # Reprint this line to make it visible in the logs.
+            # Not strictly necessary for the lines we include in the message segment below.
+            echo "$line"
+
+            severity_regex="^Reporting [0-9]+ (failure|warning|notice)s?"
+            file_regex="^\s+File: (.+)"
+            line_regex="^\s+Line: ([0-9]+)(, Column: ([0-9]+))?"
+
+            if [[ "$line" =~ $severity_regex ]]; then
+              severity="${BASH_REMATCH[1]/failure/error}"
+
+              while IFS='' read -r line; do
+                if [ -z "$line" ]; then
+                    break
+                elif [[ "$line" == "- "* ]]; then
+                  if [ -n "$message" ]; then
+                    # https://help.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message
+                    echo "::$severity file=$file,line=$row,col=$col::$message"
+                  fi
+                  message="${line#- }"
+                  file=''
+                  row=''
+                  col=''
+                elif [[ "$line" =~ $file_regex ]]; then
+                  file="${BASH_REMATCH[1]}"
+                elif [[ "$line" =~ $line_regex ]]; then
+                  row="${BASH_REMATCH[1]}"
+                  col="${BASH_REMATCH[3]}"
+                fi
+
+                # Reprint just in case it's helpful.
+                echo "$line"
+              done
+
+              # https://help.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message
+              echo "::$severity file=$file,line=$row,col=$col::$message"
+              message=''
+            fi
+          done
+        }
+
+        uv run --project "${{ github.action_path }}/.." st_package_reviewer "${args[@]}" | parse_test_results
