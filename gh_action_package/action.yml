@@ -99,25 +99,29 @@ runs:
         args+=("$INPUT_PATH")
 
         parse_test_results() {
+          local severity_regex="^(Reporting )?[0-9]+ (failure|warning)s?:$"
+          local file_regex="^[[:space:]]+File: (.+)$"
+          local line_regex="^[[:space:]]+Line: ([0-9]+)(, Column: ([0-9]+))?$"
+          local line severity message file row col
+
           while IFS='' read -r line; do
-            # Reprint this line to make it visible in the logs.
-            # Not strictly necessary for the lines we include in the message segment below.
+            # Print lines consumed by the outer loop.
             echo "$line"
 
-            severity_regex="^Reporting [0-9]+ (failure|warning|notice)s?"
-            file_regex="^\s+File: (.+)"
-            line_regex="^\s+Line: ([0-9]+)(, Column: ([0-9]+))?"
-
             if [[ "$line" =~ $severity_regex ]]; then
-              severity="${BASH_REMATCH[1]/failure/error}"
+              severity="${BASH_REMATCH[2]/failure/error}"
+              message=''
+              file=''
+              row=''
+              col=''
 
               while IFS='' read -r line; do
-                if [ -z "$line" ]; then
-                    break
+                if [[ -z "$line" ]]; then
+                  echo "$line"
+                  break
                 elif [[ "$line" == "- "* ]]; then
-                  if [ -n "$message" ]; then
-                    # https://help.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message
-                    echo "::$severity file=$file,line=$row,col=$col::$message"
+                  if [[ -n "$message" ]]; then
+                    emit_annotation "$severity" "$message" "$file" "$row" "$col"
                   fi
                   message="${line#- }"
                   file=''
@@ -130,15 +134,53 @@ runs:
                   col="${BASH_REMATCH[3]}"
                 fi
 
-                # Reprint just in case it's helpful.
+                # Print lines consumed by the inner section parser too.
                 echo "$line"
               done
 
-              # https://help.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message
-              echo "::$severity file=$file,line=$row,col=$col::$message"
-              message=''
+              if [[ -n "$message" ]]; then
+                emit_annotation "$severity" "$message" "$file" "$row" "$col"
+              fi
             fi
           done
+        }
+
+        emit_annotation() {
+          local severity="$1"
+          local message="$2"
+          local file="$3"
+          local row="$4"
+          local col="$5"
+          local properties="title=CHECK"
+
+          if [[ -n "$file" ]]; then
+            properties+=",file=$(escape_property "$file")"
+          fi
+          if [[ -n "$row" ]]; then
+            properties+=",line=$(escape_property "$row")"
+          fi
+          if [[ -n "$col" ]]; then
+            properties+=",col=$(escape_property "$col")"
+          fi
+
+          # https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-error-message
+          echo "::$severity $properties::$(escape_data "$message")"
+        }
+
+        escape_data() {
+          local data="$1"
+          data="${data//'%'/'%25'}"
+          data="${data//$'\r'/'%0D'}"
+          data="${data//$'\n'/'%0A'}"
+          printf '%s' "$data"
+        }
+
+        escape_property() {
+          local data
+          data="$(escape_data "$1")"
+          data="${data//':'/'%3A'}"
+          data="${data//','/'%2C'}"
+          printf '%s' "$data"
         }
 
         uv run --project "${{ github.action_path }}/.." st_package_reviewer "${args[@]}" | parse_test_results
