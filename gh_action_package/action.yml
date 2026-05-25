@@ -98,4 +98,5 @@ runs:
 
         args+=("$INPUT_PATH")
 
-        uv run --project "${{ github.action_path }}/.." st_package_reviewer "${args[@]}"
+        uv run --project "${{ github.action_path }}/.." st_package_reviewer "${args[@]}" \
+          | python -u "${{ github.action_path }}/annotate.py"
