@@ -350,6 +350,8 @@ class CheckKeymapMenuEntry(FileChecker):
                                                      loose=True)
 
             if not key_binding_entries:
+                self.notice("Package defines key bindings but has no 'Main.sublime-menu' "
+                            "entry to help users find or customize them.")
                 return
 
             valid_entries, missing_command_count, custom_commands = _analyze_settings_commands(

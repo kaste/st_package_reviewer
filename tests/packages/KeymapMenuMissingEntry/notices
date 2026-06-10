@@ -1,0 +1,2 @@
+- Package defines key bindings but has no 'Main.sublime-menu' entry to help users find or customize them.
+    File: Main.sublime-menu
