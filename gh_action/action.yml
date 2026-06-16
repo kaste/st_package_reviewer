@@ -20,15 +20,15 @@ inputs:
     description: GitHub token (optional; defaults to github.token)
     default: ${{ github.token }}
     required: false
+  ack-reaction:
+    description: >-
+      Reaction added to a triggering issue comment during phase=review;
+      set empty to disable
+    default: eyes
+    required: false
 runs:
   using: composite
   steps:
-    - name: Ensure uv is available
-      uses: astral-sh/setup-uv@v8.1.0
-      with:
-        # Cache this action's uv environment, not the caller's repository.
-        cache-dependency-glob: ${{ github.action_path }}/../uv.lock
-
     - name: Validate inputs
       shell: bash
       run: |
@@ -49,6 +49,34 @@ runs:
           echo "::error ::Unknown phase: $phase (expected 'review' or 'report')" >&2
           exit 2
         fi
+
+    - name: Acknowledge issue-comment review request
+      if: >-
+        inputs.phase == 'review' &&
+        inputs['ack-reaction'] != '' &&
+        github.event_name == 'issue_comment' &&
+        github.event.comment.id != null
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ACK_REACTION: ${{ inputs['ack-reaction'] }}
+        COMMENT_ID: ${{ github.event.comment.id }}
+      run: |
+        set -euo pipefail
+
+        gh api \
+          --method POST \
+          -H "Accept: application/vnd.github+json" \
+          "/repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+          -f "content=${ACK_REACTION}" \
+          >/dev/null
+
+    - name: Ensure uv is available
+      uses: astral-sh/setup-uv@v8.1.0
+      with:
+        # Cache this action's uv environment, not the caller's repository.
+        cache-dependency-glob: ${{ github.action_path }}/../uv.lock
 
     - name: Run Package Reviewer
       if: inputs.phase == 'review'

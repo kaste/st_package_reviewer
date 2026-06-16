@@ -9,6 +9,7 @@ This composite action diffs a Package Control channel registry between a PR’s 
 - `file` (optional): Path to the channel or repository file inside the repo. Default: `repository.json`.
 - `thecrawl` (optional): Path to a local `thecrawl` repo, or a git URL to clone a fork/branch/commit. Default: `https://github.com/packagecontrol/thecrawl`
 - `token` (optional): GitHub token; if not set, the workflow token is used which is usually what you want.
+- `ack-reaction` (optional): Reaction to add immediately to a triggering `issue_comment` during `phase=review`. Default: `eyes`; set to an empty string to disable. Valid GitHub reactions include `+1`, `eyes`, `rocket`, and `hooray`.
 
 You can pin a ref with `@ref` for HTTPS URLs, e.g.:
   - `https://github.com/packagecontrol/thecrawl.git@feature-branch`
@@ -23,6 +24,11 @@ on:
   pull_request:
     paths:
       - 'repository.json'
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write # needed for issue-comment acknowledgements
 
 jobs:
   diff-and-review:
@@ -65,6 +71,8 @@ jobs:
 This second workflow:
 - Downloads the `review-md` artifact produced by the first workflow (containing `review.md` and `review_pr_number.txt`).
 - Posts a new PR comment with the contents of `review.md`.
+
+For manually requested runs from `issue_comment`, the `review` phase also tries to add the configured `ack-reaction` to the triggering comment before doing expensive review work. The acknowledgement step uses `continue-on-error`, so token/permission failures are visible in the step log but do not block the review.
 
 For package/plugin repositories (no channel/registry diff), use the dedicated action:
 [../gh_action_package/README.md](../gh_action_package/README.md)
