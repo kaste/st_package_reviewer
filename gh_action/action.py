@@ -149,6 +149,11 @@ def main(argv: list[str] | None = None) -> None:
                     pkg,
                 ):
                     console.write(f"::error ::! Crawl failed for {pkg}")
+                    append_incomplete_package_review(
+                        review_md,
+                        pkg,
+                        [f"Crawling {pkg} with thecrawl failed."],
+                    )
                     failures += 1
                     continue
 
@@ -187,6 +192,7 @@ def main(argv: list[str] | None = None) -> None:
                         repo_url,
                         console,
                     ):
+                        append_incomplete_package_review(review_md, pkg)
                         failures += 1
                         continue
 
@@ -202,6 +208,11 @@ def main(argv: list[str] | None = None) -> None:
                         console.write(
                             f"::error ::! Tags-mode branch crawl failed for {pkg}"
                         )
+                        append_incomplete_package_review(
+                            review_md,
+                            pkg,
+                            [f"Crawling the default branch tip for {pkg} failed."],
+                        )
                         failures += 1
                         continue
                 review_wsfile = tags_wsfile
@@ -215,10 +226,9 @@ def main(argv: list[str] | None = None) -> None:
                     )
                 else:
                     console.write(f"::error  ::! No releases found for {pkg}")
-                append_package_review_failure(
+                append_incomplete_package_review(
                     review_md,
                     pkg,
-                    "Review could not be completed.",
                     no_release_failure_details(
                         pkg,
                         package_definition,
@@ -231,6 +241,11 @@ def main(argv: list[str] | None = None) -> None:
             url = release.get("url", "")
             if not url:
                 console.write(f"::error  ::! Missing release URL for {pkg}")
+                append_incomplete_package_review(
+                    review_md,
+                    pkg,
+                    ["The crawler emitted a release without a download URL."],
+                )
                 failures += 1
                 continue
 
@@ -260,12 +275,22 @@ def main(argv: list[str] | None = None) -> None:
                 console.write(f"  Downloading release {ver}: {url}")
                 if not download_zip(url, zipfile_path, console):
                     console.write(f"::error  ::! Download failed for {pkg}@{ver}")
+                    append_incomplete_package_review(
+                        review_md,
+                        pkg,
+                        [f"Downloading release `{ver}` failed: {url}"],
+                    )
                     failures += 1
                     continue
 
             with console.group(f"Unzipping {pkg}-{ver}"):
                 topdir = unzip_release(zipfile_path, workdir, pkg, ver, console)
                 if topdir is None:
+                    append_incomplete_package_review(
+                        review_md,
+                        pkg,
+                        [f"Unpacking release `{ver}` failed."],
+                    )
                     failures += 1
                     continue
 
@@ -363,6 +388,22 @@ def append_package_review_failure(
         for detail in details:
             f.write(f"- {detail}\n")
         f.write("\n")
+
+
+def append_incomplete_package_review(
+    review_md: Path,
+    package_name: str,
+    details: list[str] | None = None,
+) -> None:
+    if details is None:
+        details = [f"Review failed for {package_name}. See the action logs for details."]
+
+    append_package_review_failure(
+        review_md,
+        package_name,
+        "Review could not be completed.",
+        details,
+    )
 
 
 def no_release_failure_details(
