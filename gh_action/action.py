@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from contextlib import contextmanager
 import json
 import os
@@ -214,6 +215,16 @@ def main(argv: list[str] | None = None) -> None:
                     )
                 else:
                     console.write(f"::error  ::! No releases found for {pkg}")
+                append_package_review_failure(
+                    review_md,
+                    pkg,
+                    "Review could not be completed.",
+                    no_release_failure_details(
+                        pkg,
+                        package_definition,
+                        tags_mode=tags_mode,
+                    ),
+                )
                 failures += 1
                 continue
 
@@ -340,6 +351,45 @@ def append_package_review(
         f.write("\n\n")
 
 
+def append_package_review_failure(
+    review_md: Path,
+    package_name: str,
+    message: str,
+    details: list[str],
+) -> None:
+    with review_md.open("a", encoding="utf-8") as f:
+        f.write(f"## Review for {package_name}\n\n")
+        f.write(f"{message}\n\n")
+        for detail in details:
+            f.write(f"- {detail}\n")
+        f.write("\n")
+
+
+def no_release_failure_details(
+    package_name: str,
+    package_definition: dict[str, object] | None,
+    *,
+    tags_mode: bool,
+    branch_exists: Callable[[str, str], bool | None] | None = None,
+) -> list[str]:
+    if branch_exists is None:
+        branch_exists = remote_branch_exists
+
+    if tags_mode:
+        details = [f"No releases emitted from tags-mode branch crawl for {package_name}."]
+    else:
+        details = [f"No releases found for {package_name}."]
+
+    branch_details = branch_release_failure_details(package_definition, branch_exists)
+    details.extend(branch_details)
+
+    advice = "Check that the release branch exists and matches the registry entry."
+    if branch_details:
+        advice += " Better yet, switch to tags mode by setting `tags: true`."
+    details.append(advice)
+    return details
+
+
 def parse_workspace_release(workspace: Path, package_name: str) -> dict[str, str] | None:
     try:
         with workspace.open("r", encoding="utf-8") as f:
@@ -361,6 +411,65 @@ def parse_workspace_release(workspace: Path, package_name: str) -> dict[str, str
         "url": str(newest.get("url") or ""),
         "version": str(newest.get("version") or ""),
     }
+
+
+def branch_release_failure_details(
+    package_definition: dict[str, object] | None,
+    branch_exists: Callable[[str, str], bool | None],
+) -> list[str]:
+    if not isinstance(package_definition, dict):
+        return []
+
+    releases = package_definition.get("releases")
+    if not isinstance(releases, list):
+        return []
+
+    details = []
+    for release in releases:
+        if not isinstance(release, dict):
+            continue
+
+        branch = release.get("branch")
+        if not isinstance(branch, str):
+            continue
+
+        base = release.get("base")
+        if not isinstance(base, str) or not base:
+            base = package_definition.get("details")
+
+        if isinstance(base, str) and base:
+            message = f"The release definition references branch `{branch}` at {base}"
+            if branch_exists(base, branch) is False:
+                message += ", but such a branch does not exist"
+            details.append(message + ".")
+        else:
+            details.append(f"The release definition references branch `{branch}`.")
+
+    return details
+
+
+def remote_branch_exists(repo_url: str, branch: str) -> bool | None:
+    if not repo_url or not command_exists("git"):
+        return None
+
+    ref = f"refs/heads/{branch}"
+    ls_remote = run(
+        "git",
+        "ls-remote",
+        "--heads",
+        repo_url,
+        ref,
+        capture_output=True,
+        check=False,
+    )
+    if ls_remote.returncode != 0:
+        return None
+
+    return any(
+        line.split()[1] == ref
+        for line in ls_remote.stdout.splitlines()
+        if len(line.split()) >= 2
+    )
 
 
 def resolve_package_required_st_build(package_definition: dict[str, object] | None) -> int:
