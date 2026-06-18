@@ -1,0 +1,10 @@
+[
+    {
+        "caption": "Preferences: KeyBindingReport Settings",
+        "command": "edit_settings",
+        "args": {
+            "base_file": "${packages}/KeyBindingReport/resources/settings/KeyBindingReport.sublime-settings",
+            "default": "{}"
+        }
+    }
+]

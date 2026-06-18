@@ -1,0 +1,25 @@
+[
+    {
+        "caption": "Preferences",
+        "children": [
+            {
+                "caption": "Package Settings",
+                "children": [
+                    {
+                        "caption": "KeyBindingReport",
+                        "children": [
+                            {
+                                "caption": "Settings",
+                                "command": "edit_settings",
+                                "args": {
+                                    "base_file": "${packages}/KeyBindingReport/resources/settings/KeyBindingReport.sublime-settings",
+                                    "default": "{}"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
