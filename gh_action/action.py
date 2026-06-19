@@ -16,7 +16,18 @@ import tempfile
 from urllib.parse import unquote, urlparse
 import zipfile
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "gh_action"
+
 from st_package_reviewer.platforms import format_platforms, normalize_platforms
+
+from ._entry_checker import (
+    EntryReview,
+    format_entry_review,
+    load_package_entry_source,
+    review_package_entry,
+)
 
 
 DEFAULT_REVIEW_ST_BUILD = 4180
@@ -137,8 +148,16 @@ def main(argv: list[str] | None = None) -> None:
 
         wsdir = tmpdir / "workspaces"
         wsdir.mkdir(parents=True, exist_ok=True)
+        source_cache: dict[str, str | None] = {}
 
         for pkg in pkgs:
+            package_definition = head_packages.get(pkg)
+            entry_review = review_package_entry(
+                pkg,
+                package_definition,
+                load_package_entry_source(package_definition, source_cache, console),
+            )
+
             regular_wsfile = wsdir / f"{pkg}.json"
             with console.group(f"Crawling: {pkg}"):
                 console.write(f"Workspace file is {regular_wsfile}")
@@ -165,7 +184,6 @@ def main(argv: list[str] | None = None) -> None:
                     console,
                 )
 
-            package_definition = head_packages.get(pkg)
             required_st_build = resolve_package_required_st_build(package_definition)
             supported_platforms = resolve_package_platforms(package_definition)
             console.write(
@@ -324,8 +342,11 @@ def main(argv: list[str] | None = None) -> None:
                     review_md,
                     pkg,
                     display_ver,
-                    raw,
+                    combine_entry_and_package_review(entry_review, raw),
                 )
+
+                if entry_review.failures:
+                    failures += 1
 
                 if review.returncode != 0:
                     console.write(f"  ! Review failed for {pkg}@{ver}")
@@ -404,6 +425,13 @@ def append_incomplete_package_review(
         "Review could not be completed.",
         details,
     )
+
+
+def combine_entry_and_package_review(entry_review: EntryReview, raw_review: str) -> str:
+    if entry_review.empty:
+        return raw_review
+
+    return f"{format_entry_review(entry_review)}\n\n{raw_review}"
 
 
 def no_release_failure_details(
