@@ -1,5 +1,5 @@
 from gh_action.action import combine_entry_and_package_review
-from gh_action._entry_checker import extract_package_entries, review_package_entry
+from gh_action._entry_checker import EntryReview, extract_package_entries, review_package_entry
 
 
 def test_entry_review_warns_about_redundant_details_fields():
@@ -17,15 +17,14 @@ def test_entry_review_warns_about_redundant_details_fields():
     assert review.failures == []
     assert review.notices == []
     assert review.warnings == [
-        "`KeyBindingReport` sets `author` to `vwheeler63`, which is already "
-        "derived from `details`. Omit it unless it differs from the repository "
-        "owner.",
-        "`KeyBindingReport` sets `name` to `KeyBindingReport`, which is already "
-        "derived from `details`. Omit it unless the display name differs from "
-        "the repository name.",
-        "`KeyBindingReport` sets `issues` to the standard issue tracker URL "
-        "`https://github.com/vwheeler63/KeyBindingReport/issues`, which is "
-        "already derived from `details`.",
+        "`author` is set to `vwheeler63`, which can be derived from "
+        "`details`. Omit it unless it differs from the repository owner.",
+        "`name` is set to `KeyBindingReport`, which can be derived from "
+        "`details`. Omit it unless the display name differs from the "
+        "repository name.",
+        "`issues` is set to the standard issue tracker URL "
+        "`https://github.com/vwheeler63/KeyBindingReport/issues`, which can "
+        "be derived from `details`.",
     ]
 
 
@@ -55,10 +54,10 @@ def test_entry_review_warns_about_redundant_single_author_array():
     )
 
     assert review.warnings == [
-        "`KeyBindingReport` sets `author` to [`vwheeler63`], which is already "
-        "derived from `details`. Omit it unless it differs from the repository "
-        "owner; if you keep it, prefer a simple string unless there are "
-        "multiple authors."
+        "`author` is set to [`vwheeler63`], which can be derived from "
+        "`details`. Omit it unless it differs from the repository owner; if "
+        "you keep it, prefer a simple string unless there are multiple "
+        "authors."
     ]
 
 
@@ -73,8 +72,8 @@ def test_entry_review_warns_about_single_author_array():
     )
 
     assert review.warnings == [
-        "`KeyBindingReport` sets `author` to a single-item array. Prefer a "
-        "simple string unless there are multiple authors."
+        "`author` is set to a single-item array. Prefer a simple string "
+        "unless there are multiple authors."
     ]
 
 
@@ -89,8 +88,8 @@ def test_entry_review_warns_about_standard_gitlab_issues_url():
     )
 
     assert review.warnings == [
-        "`Example` sets `issues` to the standard issue tracker URL "
-        "`https://gitlab.com/example/Example/-/issues/`, which is already "
+        "`issues` is set to the standard issue tracker URL "
+        "`https://gitlab.com/example/Example/-/issues/`, which can be "
         "derived from `details`."
     ]
 
@@ -215,10 +214,54 @@ def test_combined_review_formats_entry_findings():
     )
 
     assert combine_entry_and_package_review(review, "No failures.\n") == (
-        "Entry checks:\n\n"
-        "1 notice:\n"
+        "No failures.\n\n"
+        "About the entry here:\n\n"
         "- Tip: `Example` only defines branch-based releases. Consider adding at "
         "least one `tags: true` release so Package Control can install stable "
-        "tagged versions.\n\n"
-        "No failures.\n"
+        "tagged versions.\n"
+    )
+
+
+def test_combined_review_keeps_package_notes_first():
+    review = review_package_entry(
+        "Example",
+        {
+            "name": "Example",
+            "details": "https://github.com/example/Example",
+            "releases": [{"sublime_text": "*", "tags": True}],
+        },
+    )
+
+    assert combine_entry_and_package_review(
+        review,
+        "- Repository is at https://github.com/example/Example\n\n"
+        "1 failure:\n"
+        "- Broken package file\n\n"
+        "No warnings\n\n",
+    ) == (
+        "- Repository is at https://github.com/example/Example\n\n"
+        "1 failure:\n"
+        "- Broken package file\n\n"
+        "No warnings\n\n"
+        "About the entry here:\n\n"
+        "- `name` is set to `Example`, which can be derived from `details`. "
+        "Omit it unless the display name differs from the repository name.\n"
+    )
+
+
+def test_combined_review_groups_entry_findings_when_severities_mix():
+    review = EntryReview()
+    review.failures.append("Entry failure")
+    review.warnings.append("Entry warning")
+    review.notices.append("Entry notice")
+
+    assert combine_entry_and_package_review(review, "No failures.\n") == (
+        "No failures.\n\n"
+        "About the entry here:\n\n"
+        "1 failure:\n"
+        "- Entry failure\n\n"
+        "1 warning:\n"
+        "- Entry warning\n\n"
+        "1 notice:\n"
+        "- Entry notice\n"
     )

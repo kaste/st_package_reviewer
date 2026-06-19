@@ -431,7 +431,12 @@ def combine_entry_and_package_review(entry_review: EntryReview, raw_review: str)
     if entry_review.empty:
         return raw_review
 
-    return f"{format_entry_review(entry_review)}\n\n{raw_review}"
+    entry_text = format_entry_review(entry_review)
+    raw_text = raw_review.rstrip()
+    if not raw_text:
+        return f"{entry_text}\n"
+
+    return f"{raw_text}\n\n{entry_text}\n"
 
 
 def no_release_failure_details(

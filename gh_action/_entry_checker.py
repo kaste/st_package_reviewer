@@ -76,30 +76,30 @@ def check_redundant_details_fields(
     if isinstance(author, str):
         if same_value(author, repo.owner):
             review.warnings.append(
-                f"`{package_name}` sets `author` to `{author}`, which is already "
-                "derived from `details`. Omit it unless it differs from the "
-                "repository owner."
+                f"`author` is set to `{author}`, which can be derived from "
+                "`details`. Omit it unless it differs from the repository "
+                "owner."
             )
     elif isinstance(author, list) and len(author) == 1:
         only_author = author[0]
         if same_value(only_author, repo.owner):
             review.warnings.append(
-                f"`{package_name}` sets `author` to [`{only_author}`], which is "
-                "already derived from `details`. Omit it unless it differs from "
-                "the repository owner; if you keep it, prefer a simple string "
+                f"`author` is set to [`{only_author}`], which can be derived "
+                "from `details`. Omit it unless it differs from the "
+                "repository owner; if you keep it, prefer a simple string "
                 "unless there are multiple authors."
             )
         elif isinstance(only_author, str):
             review.warnings.append(
-                f"`{package_name}` sets `author` to a single-item array. "
-                "Prefer a simple string unless there are multiple authors."
+                "`author` is set to a single-item array. Prefer a simple "
+                "string unless there are multiple authors."
             )
 
     name = package_definition.get("name")
     if isinstance(name, str) and name == repo.repo:
         review.warnings.append(
-            f"`{package_name}` sets `name` to `{name}`, which is already derived "
-            "from `details`. Omit it unless the display name differs from the "
+            f"`name` is set to `{name}`, which can be derived from "
+            "`details`. Omit it unless the display name differs from the "
             "repository name."
         )
 
@@ -107,8 +107,8 @@ def check_redundant_details_fields(
     standard_issues = repo.standard_issues_url()
     if isinstance(issues, str) and same_url(issues, standard_issues):
         review.warnings.append(
-            f"`{package_name}` sets `issues` to the standard issue tracker "
-            f"URL `{issues}`, which is already derived from `details`."
+            f"`issues` is set to the standard issue tracker URL `{issues}`, "
+            "which can be derived from `details`."
         )
 
 
@@ -157,15 +157,18 @@ def check_source_entry(package_name: str, source_text: str, review: EntryReview)
 
 
 def format_entry_review(entry_review: EntryReview) -> str:
-    lines = ["Entry checks:", ""]
-    for title, messages in (
+    lines = ["About the entry here:", ""]
+    groups = [
         ("failures", entry_review.failures),
         ("warnings", entry_review.warnings),
         ("notices", entry_review.notices),
-    ):
-        if not messages:
-            continue
-        lines.append(f"{len(messages)} {singular_or_plural(len(messages), title)}:")
+    ]
+    populated_groups = [(title, messages) for title, messages in groups if messages]
+    show_group_headers = len(populated_groups) > 1 or bool(entry_review.failures)
+
+    for title, messages in populated_groups:
+        if show_group_headers:
+            lines.append(f"{len(messages)} {singular_or_plural(len(messages), title)}:")
         lines.extend(f"- {message}" for message in messages)
         lines.append("")
     return "\n".join(lines).rstrip()
