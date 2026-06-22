@@ -1,4 +1,6 @@
-- 'Default.sublime-keymap' only contains commented examples. Consider defining 'Example.sublime-keymap' and linking it from 'Main.sublime-menu'.
+- 'Default.sublime-keymap' only contains commented examples. Consider moving them to 'Example.sublime-keymap' and linking it from 'Main.sublime-menu'. Sublime Text will not load key bindings from files with non-standard filenames, so the examples can be left uncommented there for easier copy/paste.
     File: Default.sublime-keymap
+- 'Example.sublime-keymap' only contains commented examples. You can leave the bindings uncommented for easier copy/paste because Sublime Text will not load key bindings from files with non-standard filenames.
+    File: Example.sublime-keymap
 - This file only contains commented examples.
     File: Example.sublime-commands

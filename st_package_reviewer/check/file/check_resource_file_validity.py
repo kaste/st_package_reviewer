@@ -77,14 +77,35 @@ def _contains_commented_example(suffix, source):
 
 def _example_file_notice(file_path):
     if file_path.suffix == ".sublime-keymap":
+        if _is_standard_keymap_name(file_path.name):
+            return (
+                "'{0}' only contains commented examples. Consider moving "
+                "them to 'Example.sublime-keymap' and linking it from "
+                "'Main.sublime-menu'. Sublime Text will not load key "
+                "bindings from files with non-standard filenames, so the "
+                "examples can be left uncommented there for easier copy/paste."
+                .format(file_path.name)
+            )
+
         return (
-            "'{0}' only contains commented examples. Consider defining "
-            "'Example.sublime-keymap' and linking it from "
-            "'Main.sublime-menu'."
+            "'{0}' only contains commented examples. You can leave the "
+            "bindings uncommented for easier copy/paste because Sublime "
+            "Text will not load key bindings from files with "
+            "non-standard filenames."
             .format(file_path.name)
         )
 
     return "This file only contains commented examples."
+
+
+def _is_standard_keymap_name(name):
+    if name == "Default.sublime-keymap":
+        return True
+
+    return re.match(
+        r"^Default \((?:Linux|OSX|Windows)\)\.sublime-keymap$",
+        name,
+    ) is not None
 
 
 class CheckPlistFiles(FileChecker):
