@@ -513,18 +513,18 @@ def _check_keymap_edit_settings_user_file(file_checker, entry, source, rel_path)
     else:
         if has_user_file:
             message = ("{} for {!r} with 'args.user_file' set to {}. For "
-                       "non-standard keymap names this is required because "
-                       "edit_settings will otherwise create that filename "
-                       "in User, but Sublime Text will not load it. Use "
-                       "{!r} instead."
-                       .format(source, rel_path.name, user_file, USER_PLATFORM_KEYMAP))
+                       "non-standard keymap filenames, use {!r}. Otherwise "
+                       "edit_settings creates {!r} in the User package, and "
+                       "Sublime Text will not load key bindings from that file."
+                       .format(source, rel_path.name, user_file,
+                               USER_PLATFORM_KEYMAP, rel_path.name))
         else:
             message = ("{} for {!r}, but 'args.user_file' is missing. For "
-                       "non-standard keymap names this is required because "
-                       "edit_settings will otherwise create that filename "
-                       "in User, but Sublime Text will not load it. Set it "
-                       "to {!r}."
-                       .format(source, rel_path.name, USER_PLATFORM_KEYMAP))
+                       "non-standard keymap filenames, set it to {!r}. "
+                       "Otherwise edit_settings creates {!r} in the User "
+                       "package, and Sublime Text will not load key bindings "
+                       "from that file."
+                       .format(source, rel_path.name, USER_PLATFORM_KEYMAP, rel_path.name))
     file_checker.fail(message)
 
 
