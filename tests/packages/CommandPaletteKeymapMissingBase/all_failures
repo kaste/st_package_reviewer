@@ -1,0 +1,2 @@
+- 'Default.sublime-commands' has a key bindings entry whose 'args.base_file' does not exist: ${packages}/StyleTokenHighlighter/Default ($platform).sublime-keymap
+    File: Default.sublime-commands

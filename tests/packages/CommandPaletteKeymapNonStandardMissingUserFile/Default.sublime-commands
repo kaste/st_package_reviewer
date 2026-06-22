@@ -1,0 +1,10 @@
+[
+    {
+        "caption": "Preferences: StyleTokenHighlighter Key Bindings",
+        "command": "edit_settings",
+        "args": {
+            "base_file": "${packages}/StyleTokenHighlighter/Example.sublime-keymap",
+            "default": "[\n\t$0\n]\n"
+        }
+    }
+]

@@ -1,0 +1,2 @@
+- 'Default.sublime-commands' has a key bindings entry for 'Example.sublime-keymap', but 'args.user_file' is missing. For non-standard keymap names this is required because edit_settings will otherwise create that filename in User, but Sublime Text will not load it. Set it to '${packages}/User/Default (${platform}).sublime-keymap'.
+    File: Default.sublime-commands

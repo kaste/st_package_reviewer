@@ -221,6 +221,34 @@ class CheckCommandPaletteEditSettingsCaption(FileChecker):
             )
 
 
+class CheckCommandPaletteKeymapEntry(FileChecker):
+
+    def check(self):
+        if not self.package_name:
+            return
+
+        for commands_path in sorted(self.glob("**/*.sublime-commands")):
+            with self.file_context(commands_path):
+                commands = _load_menu_file(commands_path)
+                if not isinstance(commands, list):
+                    continue
+
+                for entry in commands:
+                    if not _is_command_palette_keymap_entry(entry):
+                        continue
+
+                    self._check_entry(entry, commands_path)
+
+    def _check_entry(self, entry, commands_path):
+        label = _commands_file_label(commands_path)
+        source = "{} has a key bindings entry".format(label)
+        if not entry.get('args', {}).get('base_file'):
+            self.warn("{} without required 'args.base_file'.".format(source))
+            return
+
+        _check_keymap_edit_settings_entry(self, entry, source)
+
+
 class CheckCommandPaletteSettingsEntry(FileChecker):
 
     def check(self):
@@ -405,89 +433,99 @@ class CheckKeymapMenuEntry(FileChecker):
                 self._check_base_file_entry(entry)
 
     def _check_base_file_entry(self, entry):
-        base_file = entry.get('args', {}).get('base_file')
-        rel_path = _package_resource_path(base_file, self.package_name)
-        if rel_path is None:
-            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry with "
-                      "'args.base_file' set to {}, but this package will be "
-                      "installed under ${{packages}}/{}/. Use the exact package "
-                      "name after ${{packages}}/."
-                      .format(base_file, self.package_name))
-            return
+        _check_keymap_edit_settings_entry(
+            self,
+            entry,
+            "'Main.sublime-menu' has a 'Key Bindings' entry",
+        )
 
-        if _is_platform_keymap(rel_path):
-            self._check_platform_keymap_base_file(base_file, rel_path)
-            return
 
-        if not self.sub_path(rel_path).is_file():
-            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry whose "
-                      "'args.base_file' does not exist: {}".format(base_file))
-            return
+def _check_keymap_edit_settings_entry(file_checker, entry, source):
+    base_file = entry.get('args', {}).get('base_file')
+    rel_path = _package_resource_path(base_file, file_checker.package_name)
+    if rel_path is None:
+        file_checker.fail("{} with 'args.base_file' set to {}, but this "
+                          "package will be installed under ${{packages}}/{}/. "
+                          "Use the exact package name after ${{packages}}/."
+                          .format(source, base_file, file_checker.package_name))
+        return
 
-        if _is_specific_platform_keymap(rel_path):
-            self.warn("'Main.sublime-menu' has a 'Key Bindings' entry with "
-                      "'args.base_file' set to a platform-specific keymap. "
-                      "Use {!r} instead."
-                      .format(_platform_keymap_resource(base_file)))
+    if _is_platform_keymap(rel_path):
+        _check_platform_keymap_edit_settings_entry(
+            file_checker,
+            source,
+            base_file,
+            rel_path,
+        )
+        return
 
-        if _requires_user_keymap(rel_path) and entry.get('command') == 'edit_settings':
-            self._check_keymap_user_file(entry, rel_path)
+    if not file_checker.sub_path(rel_path).is_file():
+        file_checker.fail("{} whose 'args.base_file' does not exist: {}"
+                          .format(source, base_file))
+        return
 
-    def _check_platform_keymap_base_file(self, base_file, rel_path):
-        platform_keymap_paths = _platform_keymap_paths(rel_path)
-        existing_paths = [path for path in platform_keymap_paths if self.sub_path(path).is_file()]
-        missing_paths = [path for path in platform_keymap_paths if path not in existing_paths]
+    if _is_specific_platform_keymap(rel_path):
+        file_checker.warn("{} with 'args.base_file' set to a "
+                          "platform-specific keymap. Use {!r} instead."
+                          .format(source, _platform_keymap_resource(base_file)))
 
-        if not existing_paths:
-            self.fail("'Main.sublime-menu' has a 'Key Bindings' entry with "
-                      "'args.base_file' set to {}, but no platform-specific "
-                      "keymap files exist. Add one for each platform you want "
-                      "to support: {}"
-                      .format(base_file, _format_rel_paths(platform_keymap_paths)))
-            return
+    if _requires_user_keymap(rel_path):
+        _check_keymap_edit_settings_user_file(file_checker, entry, source, rel_path)
 
-        if missing_paths:
-            self.warn("'Main.sublime-menu' has a 'Key Bindings' entry with "
-                      "'args.base_file' set to {}, but these platform keymap "
-                      "files are missing: {}"
-                      .format(base_file, _format_rel_paths(missing_paths)))
 
-    def _check_keymap_user_file(self, entry, rel_path):
-        args = entry.get('args', {})
-        user_file = args.get('user_file')
-        if user_file == USER_PLATFORM_KEYMAP:
-            return
+def _check_platform_keymap_edit_settings_entry(file_checker, source, base_file, rel_path):
+    platform_keymap_paths = _platform_keymap_paths(rel_path)
+    existing_paths = [
+        path for path in platform_keymap_paths
+        if file_checker.sub_path(path).is_file()
+    ]
+    missing_paths = [path for path in platform_keymap_paths if path not in existing_paths]
 
-        has_user_file = 'user_file' in args
-        if _is_default_keymap(rel_path):
-            if has_user_file:
-                message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
-                           "Default.sublime-keymap with 'args.user_file' set to "
-                           "{}. Use {!r} instead."
-                           .format(user_file, USER_PLATFORM_KEYMAP))
-            else:
-                message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
-                           "Default.sublime-keymap, but 'args.user_file' is "
-                           "missing. Set it to {!r}."
-                           .format(USER_PLATFORM_KEYMAP))
+    if not existing_paths:
+        file_checker.fail("{} with 'args.base_file' set to {}, but no "
+                          "platform-specific keymap files exist. Add one "
+                          "for each platform you want to support: {}"
+                          .format(source, base_file, _format_rel_paths(platform_keymap_paths)))
+        return
+
+    if missing_paths:
+        file_checker.warn("{} with 'args.base_file' set to {}, but these "
+                          "platform keymap files are missing: {}"
+                          .format(source, base_file, _format_rel_paths(missing_paths)))
+
+
+def _check_keymap_edit_settings_user_file(file_checker, entry, source, rel_path):
+    args = entry.get('args', {})
+    user_file = args.get('user_file')
+    if user_file == USER_PLATFORM_KEYMAP:
+        return
+
+    has_user_file = 'user_file' in args
+    if _is_default_keymap(rel_path):
+        if has_user_file:
+            message = ("{} for Default.sublime-keymap with 'args.user_file' "
+                       "set to {}. Use {!r} instead."
+                       .format(source, user_file, USER_PLATFORM_KEYMAP))
         else:
-            if has_user_file:
-                message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
-                           "{!r} with 'args.user_file' set to {}. For "
-                           "non-standard keymap names this is required because "
-                           "edit_settings will otherwise create that filename "
-                           "in User, but Sublime Text will not load it. Use "
-                           "{!r} instead."
-                           .format(rel_path.name, user_file, USER_PLATFORM_KEYMAP))
-            else:
-                message = ("'Main.sublime-menu' has a 'Key Bindings' entry for "
-                           "{!r}, but 'args.user_file' is missing. For "
-                           "non-standard keymap names this is required because "
-                           "edit_settings will otherwise create that filename "
-                           "in User, but Sublime Text will not load it. Set it "
-                           "to {!r}."
-                           .format(rel_path.name, USER_PLATFORM_KEYMAP))
-        self.fail(message)
+            message = ("{} for Default.sublime-keymap, but 'args.user_file' "
+                       "is missing. Set it to {!r}."
+                       .format(source, USER_PLATFORM_KEYMAP))
+    else:
+        if has_user_file:
+            message = ("{} for {!r} with 'args.user_file' set to {}. For "
+                       "non-standard keymap names this is required because "
+                       "edit_settings will otherwise create that filename "
+                       "in User, but Sublime Text will not load it. Use "
+                       "{!r} instead."
+                       .format(source, rel_path.name, user_file, USER_PLATFORM_KEYMAP))
+        else:
+            message = ("{} for {!r}, but 'args.user_file' is missing. For "
+                       "non-standard keymap names this is required because "
+                       "edit_settings will otherwise create that filename "
+                       "in User, but Sublime Text will not load it. Set it "
+                       "to {!r}."
+                       .format(source, rel_path.name, USER_PLATFORM_KEYMAP))
+    file_checker.fail(message)
 
 
 def _edit_settings_entry_kind(entry):
@@ -649,6 +687,14 @@ def _find_command_palette_edit_settings_entries(commands):
         and entry.get('command') == 'edit_settings'
         and _edit_settings_entry_kind(entry) == "settings"
     ]
+
+
+def _is_command_palette_keymap_entry(entry):
+    return (
+        isinstance(entry, dict)
+        and entry.get('command') == 'edit_settings'
+        and _edit_settings_entry_kind(entry) == "key bindings"
+    )
 
 
 def _missing_command_palette_base_file_warning(expected_base_files, entries,

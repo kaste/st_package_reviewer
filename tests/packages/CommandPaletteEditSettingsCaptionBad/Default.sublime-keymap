@@ -1,0 +1,7 @@
+[
+    {
+        "keys": ["alt+shift+b"],
+        "command": "box_drawing_draw",
+        "context": [{ "key": "selector", "operator": "equal", "operand": "text.plain" }]
+    }
+]
