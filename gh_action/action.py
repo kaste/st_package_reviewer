@@ -155,7 +155,12 @@ def main(argv: list[str] | None = None) -> None:
             entry_review = review_package_entry(
                 pkg,
                 package_definition,
-                load_package_entry_source(package_definition, source_cache, console),
+                load_package_entry_source(
+                    pkg,
+                    package_definition,
+                    source_cache,
+                    console,
+                ),
             )
 
             regular_wsfile = wsdir / f"{pkg}.json"

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import re
 from typing import Protocol
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 
@@ -21,7 +21,14 @@ def review_package_entry(
     if not isinstance(package_definition, dict):
         return review
 
-    check_redundant_details_fields(package_name, package_definition, review)
+    source_entry = find_package_source_entry(package_name, source_text)
+    check_redundant_details_fields(
+        package_name,
+        package_definition,
+        review,
+        source_entry.value if source_entry is not None else None,
+    )
+
     check_release_mode_advice(package_name, package_definition, review)
 
     if source_text is not None:
@@ -31,6 +38,7 @@ def review_package_entry(
 
 
 def load_package_entry_source(
+    package_name: str,
     package_definition: dict[str, object] | None,
     source_cache: dict[str, str | None],
     console: Logger,
@@ -42,10 +50,20 @@ def load_package_entry_source(
     if not isinstance(source, str) or not source:
         return None
 
-    if source not in source_cache:
-        source_cache[source] = fetch_text(source, console)
+    source_text = fetch_cached_text(source, source_cache, console)
+    if source_text is None:
+        return None
+    if find_package_source_entry(package_name, source_text) is not None:
+        return source_text
 
-    return source_cache[source]
+    for included_source in included_source_locations(source, source_text):
+        included_text = fetch_cached_text(included_source, source_cache, console)
+        if included_text is None:
+            continue
+        if find_package_source_entry(package_name, included_text) is not None:
+            return included_text
+
+    return None
 
 
 class EntryReview:
@@ -59,10 +77,54 @@ class EntryReview:
         return not (self.failures or self.warnings or self.notices)
 
 
+def find_package_source_entry(
+    package_name: str,
+    source_text: str | None,
+) -> SourceEntry | None:
+    if source_text is None:
+        return None
+
+    for entry in extract_package_entries(source_text):
+        if entry.name == package_name:
+            return entry
+    return None
+
+
+def fetch_cached_text(
+    location: str,
+    source_cache: dict[str, str | None],
+    console: Logger,
+) -> str | None:
+    if location not in source_cache:
+        source_cache[location] = fetch_text(location, console)
+    return source_cache[location]
+
+
+def included_source_locations(source: str, source_text: str) -> list[str]:
+    try:
+        value = json.loads(source_text)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(value, dict):
+        return []
+
+    includes = value.get("includes")
+    if not isinstance(includes, list):
+        return []
+
+    return [
+        resolve_source_location(source, include)
+        for include in includes
+        if isinstance(include, str) and include
+    ]
+
+
 def check_redundant_details_fields(
     package_name: str,
     package_definition: dict[str, object],
     review: EntryReview,
+    source_entry: dict[str, object] | None = None,
 ) -> None:
     details = package_definition.get("details")
     if not isinstance(details, str):
@@ -95,13 +157,14 @@ def check_redundant_details_fields(
                 "string unless there are multiple authors."
             )
 
-    name = package_definition.get("name")
-    if isinstance(name, str) and name == repo.repo:
-        review.warnings.append(
-            f"`name` is set to `{name}`, which can be derived from "
-            "`details`. Omit it unless the display name differs from the "
-            "repository name."
-        )
+    if source_entry is not None:
+        name = source_entry.get("name")
+        if isinstance(name, str) and name == repo.repo:
+            review.warnings.append(
+                f"`name` is set to `{name}`, which can be derived from "
+                "`details`. Omit it unless the display name differs from the "
+                "repository name."
+            )
 
     issues = package_definition.get("issues")
     standard_issues = repo.standard_issues_url()
@@ -187,11 +250,20 @@ class HostedRepo:
 
 
 class SourceEntry:
-    def __init__(self, name: str, index: int, start: int, end: int, source: str) -> None:
+    def __init__(
+        self,
+        name: str,
+        index: int,
+        start: int,
+        end: int,
+        value: dict[str, object],
+        source: str,
+    ) -> None:
         self.name = name
         self.index = index
         self.start = start
         self.end = end
+        self.value = value
         self.source = source
 
     @property
@@ -244,6 +316,16 @@ def fetch_text(location: str, console: Logger) -> str | None:
     return None
 
 
+def resolve_source_location(source: str, include: str) -> str:
+    if re.match(r"https?://", source, re.I):
+        return urljoin(source, include)
+
+    include_path = Path(include)
+    if include_path.is_absolute():
+        return str(include_path)
+    return str(Path(source).parent / include_path)
+
+
 def extract_package_entries(source: str) -> list[SourceEntry]:
     array_start = find_json_array_for_key(source, "packages")
     if array_start is None:
@@ -253,7 +335,7 @@ def extract_package_entries(source: str) -> list[SourceEntry]:
     for index, start, end, value in iterate_json_array_objects(source, array_start):
         name = package_entry_name(value)
         if name:
-            entries.append(SourceEntry(name, index, start, end, source))
+            entries.append(SourceEntry(name, index, start, end, value, source))
     return entries
 
 
