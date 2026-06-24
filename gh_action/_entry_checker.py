@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
+import string
 from typing import Protocol
 from urllib.parse import unquote, urljoin, urlparse
 from urllib.request import Request, urlopen
@@ -15,13 +16,16 @@ class Logger(Protocol):
 def review_package_entry(
     package_name: str,
     package_definition: dict[str, object] | None,
-    source_text: str | None = None,
+    source: PackageEntrySource | None = None,
 ) -> EntryReview:
     review = EntryReview()
     if not isinstance(package_definition, dict):
         return review
 
-    source_entry = find_package_source_entry(package_name, source_text)
+    source_entry = find_package_source_entry(
+        package_name,
+        source.text if source is not None else None,
+    )
     check_redundant_details_fields(
         package_name,
         package_definition,
@@ -31,8 +35,7 @@ def review_package_entry(
 
     check_release_mode_advice(package_name, package_definition, review)
 
-    if source_text is not None:
-        check_source_entry(package_name, source_text, review)
+    check_source_entry(package_name, source, review)
 
     return review
 
@@ -42,7 +45,7 @@ def load_package_entry_source(
     package_definition: dict[str, object] | None,
     source_cache: dict[str, str | None],
     console: Logger,
-) -> str | None:
+) -> PackageEntrySource | None:
     if not isinstance(package_definition, dict):
         return None
 
@@ -53,17 +56,56 @@ def load_package_entry_source(
     source_text = fetch_cached_text(source, source_cache, console)
     if source_text is None:
         return None
-    if find_package_source_entry(package_name, source_text) is not None:
-        return source_text
 
-    for included_source in included_source_locations(source, source_text):
-        included_text = fetch_cached_text(included_source, source_cache, console)
+    included_sources = included_source_locations(source, source_text)
+    expected_source = expected_bucket_source(package_name, included_sources)
+    if find_package_source_entry(package_name, source_text) is not None:
+        return PackageEntrySource(
+            source_text,
+            source,
+            source,
+            expected_source,
+        )
+
+    for included_source in prioritized_sources(included_sources, expected_source):
+        included_text = fetch_cached_text(
+            included_source.location,
+            source_cache,
+            console,
+        )
         if included_text is None:
             continue
         if find_package_source_entry(package_name, included_text) is not None:
-            return included_text
+            return PackageEntrySource(
+                included_text,
+                included_source.location,
+                included_source.label,
+                expected_source,
+            )
 
     return None
+
+
+class PackageEntrySource:
+    def __init__(
+        self,
+        text: str,
+        location: str = "",
+        label: str = "",
+        expected: IncludedSource | None = None,
+    ) -> None:
+        self.text = text
+        self.location = location
+        self.label = label or location
+        self.expected_location = expected.location if expected is not None else ""
+        self.expected_label = expected.label if expected is not None else ""
+
+
+class IncludedSource:
+    def __init__(self, location: str, label: str) -> None:
+        self.location = location
+        self.label = label
+        self.bucket = source_bucket(label)
 
 
 class EntryReview:
@@ -100,7 +142,7 @@ def fetch_cached_text(
     return source_cache[location]
 
 
-def included_source_locations(source: str, source_text: str) -> list[str]:
+def included_source_locations(source: str, source_text: str) -> list[IncludedSource]:
     try:
         value = json.loads(source_text)
     except json.JSONDecodeError:
@@ -114,10 +156,59 @@ def included_source_locations(source: str, source_text: str) -> list[str]:
         return []
 
     return [
-        resolve_source_location(source, include)
+        IncludedSource(resolve_source_location(source, include), include)
         for include in includes
         if isinstance(include, str) and include
     ]
+
+
+def expected_bucket_source(
+    package_name: str,
+    included_sources: list[IncludedSource],
+) -> IncludedSource | None:
+    if not has_alphabetical_buckets(included_sources):
+        return None
+
+    bucket = expected_source_bucket(package_name)
+    if not bucket:
+        return None
+
+    for included_source in included_sources:
+        if included_source.bucket == bucket:
+            return included_source
+    return None
+
+
+def prioritized_sources(
+    sources: list[IncludedSource],
+    preferred: IncludedSource | None,
+) -> list[IncludedSource]:
+    if preferred is None:
+        return sources
+    return [preferred] + [source for source in sources if source is not preferred]
+
+
+def has_alphabetical_buckets(sources: list[IncludedSource]) -> bool:
+    buckets = {source.bucket for source in sources}
+    return set(string.ascii_lowercase) <= buckets
+
+
+def expected_source_bucket(package_name: str) -> str:
+    first = package_name[:1].casefold()
+    if first in string.ascii_lowercase:
+        return first
+    if first.isdigit():
+        return "0-9"
+    return ""
+
+
+def source_bucket(location: str) -> str:
+    name = Path(urlparse(location).path).name.casefold()
+    if re.fullmatch(r"[a-z]\.json", name):
+        return name[:-5]
+    if name == "0-9.json":
+        return "0-9"
+    return ""
 
 
 def check_redundant_details_fields(
@@ -196,14 +287,25 @@ def check_release_mode_advice(
         )
 
 
-def check_source_entry(package_name: str, source_text: str, review: EntryReview) -> None:
-    entries = extract_package_entries(source_text)
+def check_source_entry(
+    package_name: str,
+    source: PackageEntrySource | None,
+    review: EntryReview,
+) -> None:
+    if source is None:
+        return
+
+    entries = extract_package_entries(source.text)
     if not entries:
         return
 
     matching_entries = [entry for entry in entries if entry.name == package_name]
     if not matching_entries:
         return
+
+    source_bucket_issue = package_source_bucket_issue(package_name, source)
+    if source_bucket_issue:
+        review.failures.append(source_bucket_issue)
 
     names = [entry.name for entry in entries]
     for entry in matching_entries:
@@ -217,6 +319,24 @@ def check_source_entry(package_name: str, source_text: str, review: EntryReview)
         sorting_issue = source_entry_sorting_issue(names, entry.index)
         if sorting_issue:
             review.failures.append(f"`{package_name}` is not sorted: {sorting_issue}")
+
+
+def package_source_bucket_issue(
+    package_name: str,
+    source: PackageEntrySource,
+) -> str:
+    if not source.location or not source.expected_location:
+        return ""
+    if source.location == source.expected_location:
+        return ""
+
+    actual = format_source_label(source.label)
+    expected = format_source_label(source.expected_label)
+    return f"`{package_name}` is in `{actual}`; move it to `{expected}`."
+
+
+def format_source_label(label: str) -> str:
+    return label.removeprefix("./").replace("\\", "/")
 
 
 def format_entry_review(entry_review: EntryReview) -> str:

@@ -3,6 +3,7 @@ import json
 from gh_action.action import combine_entry_and_package_review
 from gh_action._entry_checker import (
     EntryReview,
+    PackageEntrySource,
     extract_package_entries,
     load_package_entry_source,
     review_package_entry,
@@ -25,7 +26,7 @@ def test_entry_review_warns_about_redundant_details_fields():
     review = review_package_entry(
         "KeyBindingReport",
         package_definition,
-        source_for(package_definition),
+        entry_source_for(package_definition),
     )
 
     assert review.failures == []
@@ -53,7 +54,7 @@ def test_entry_review_allows_different_display_name_and_author():
     review = review_package_entry(
         "Key Binding Report",
         package_definition,
-        source_for(package_definition),
+        entry_source_for(package_definition),
     )
 
     assert review.empty
@@ -68,7 +69,7 @@ def test_entry_review_warns_about_redundant_single_author_array():
     review = review_package_entry(
         "KeyBindingReport",
         package_definition,
-        source_for(package_definition),
+        entry_source_for(package_definition),
     )
 
     assert review.warnings == [
@@ -88,7 +89,7 @@ def test_entry_review_warns_about_single_author_array():
     review = review_package_entry(
         "KeyBindingReport",
         package_definition,
-        source_for(package_definition),
+        entry_source_for(package_definition),
     )
 
     assert review.warnings == [
@@ -106,7 +107,7 @@ def test_entry_review_warns_about_standard_gitlab_issues_url():
     review = review_package_entry(
         "Example",
         package_definition,
-        source_for(package_definition),
+        entry_source_for(package_definition),
     )
 
     assert review.warnings == [
@@ -189,7 +190,7 @@ def test_entry_review_checks_only_named_source_entry():
     review = review_package_entry(
         "Alpha",
         {"details": "https://github.com/example/Alpha"},
-        source,
+        PackageEntrySource(source),
     )
 
     assert review.failures == []
@@ -197,7 +198,7 @@ def test_entry_review_checks_only_named_source_entry():
     review = review_package_entry(
         "Zulu",
         {"details": "https://github.com/example/Zulu"},
-        source,
+        PackageEntrySource(source),
     )
 
     assert review.failures == [
@@ -226,7 +227,7 @@ def test_entry_review_reports_changed_package_sorting_against_neighbors():
     review = review_package_entry(
         "Bravo",
         {"details": "https://github.com/example/Bravo"},
-        source,
+        PackageEntrySource(source),
     )
 
     assert review.failures == [
@@ -254,7 +255,7 @@ def test_entry_review_uses_source_entry_for_redundant_field_checks():
             "details": "https://github.com/example/NoName",
             "releases": [{"sublime_text": "*", "tags": True}],
         },
-        source,
+        PackageEntrySource(source),
     )
 
     assert review.empty
@@ -295,7 +296,84 @@ def test_load_package_entry_source_follows_includes(tmp_path):
         DummyConsole(),
     )
 
-    assert source == included.read_text(encoding="utf-8")
+    assert source is not None
+    assert source.text == included.read_text(encoding="utf-8")
+
+
+def test_load_package_entry_source_prefers_expected_bucket(tmp_path):
+    root = tmp_path / "repository.json"
+    bucket = tmp_path / "repository" / "s.json"
+    bucket.parent.mkdir()
+    root.write_text(bucketed_repository_json(), encoding="utf-8")
+    bucket.write_text(
+        source_for(
+            {
+                "details": "https://github.com/example/StyleTokenHighlighter",
+            }
+        ),
+        encoding="utf-8",
+    )
+    source_cache = {}
+
+    source = load_package_entry_source(
+        "StyleTokenHighlighter",
+        {
+            "name": "StyleTokenHighlighter",
+            "details": "https://github.com/example/StyleTokenHighlighter",
+            "source": str(root),
+        },
+        source_cache,
+        DummyConsole(),
+    )
+
+    assert source is not None
+    assert source.label == "./repository/s.json"
+    assert str(tmp_path / "repository" / "a.json") not in source_cache
+
+
+def test_entry_review_reports_wrong_bucket_file(tmp_path):
+    root = tmp_path / "repository.json"
+    expected = tmp_path / "repository" / "s.json"
+    actual = tmp_path / "repository" / "t.json"
+    expected.parent.mkdir()
+    root.write_text(bucketed_repository_json(), encoding="utf-8")
+    expected.write_text(
+        source_for({"details": "https://github.com/example/Other"}),
+        encoding="utf-8",
+    )
+    actual.write_text(
+        source_for(
+            {
+                "details": "https://github.com/example/StyleTokenHighlighter",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    source = load_package_entry_source(
+        "StyleTokenHighlighter",
+        {
+            "name": "StyleTokenHighlighter",
+            "details": "https://github.com/example/StyleTokenHighlighter",
+            "source": str(root),
+        },
+        {},
+        DummyConsole(),
+    )
+
+    review = review_package_entry(
+        "StyleTokenHighlighter",
+        {
+            "name": "StyleTokenHighlighter",
+            "details": "https://github.com/example/StyleTokenHighlighter",
+        },
+        source,
+    )
+
+    assert review.failures == [
+        "`StyleTokenHighlighter` is in `repository/t.json`; move it to "
+        "`repository/s.json`."
+    ]
 
 
 def test_extract_package_entries_uses_details_when_name_is_missing():
@@ -351,7 +429,7 @@ def test_combined_review_keeps_package_notes_first():
     review = review_package_entry(
         "Example",
         package_definition,
-        source_for(package_definition),
+        entry_source_for(package_definition),
     )
 
     assert combine_entry_and_package_review(
@@ -389,11 +467,31 @@ def test_combined_review_groups_entry_findings_when_severities_mix():
     )
 
 
+def entry_source_for(package_definition):
+    return PackageEntrySource(source_for(package_definition))
+
+
 def source_for(package_definition):
     return json.dumps(
         {
             "schema_version": "3.0.0",
             "packages": [package_definition],
+        },
+        indent="\t",
+    )
+
+
+def bucketed_repository_json():
+    includes = ["./repository/0-9.json"]
+    includes.extend(
+        f"./repository/{letter}.json"
+        for letter in "abcdefghijklmnopqrstuvwxyz"
+    )
+    return json.dumps(
+        {
+            "schema_version": "3.0.0",
+            "packages": [],
+            "includes": includes,
         },
         indent="\t",
     )
