@@ -1,7 +1,10 @@
+from subprocess import CompletedProcess
+
 import pytest
 
 from gh_action.action import (
     DEFAULT_REVIEW_ST_BUILD,
+    describe_thecrawl_revision,
     extract_effective_tag_prefixes,
     parse_sublime_text_min,
     resolve_package_platforms,
@@ -28,6 +31,31 @@ from gh_action.action import (
 )
 def test_parse_sublime_text_min(selector, expected):
     assert parse_sublime_text_min(selector) == expected
+
+
+def test_describe_thecrawl_revision_reports_ref_and_worktree(monkeypatch, tmp_path):
+    outputs = {
+        "rev-parse": (0, "7416d45ed9f2\n"),
+        "symbolic-ref": (0, "main\n"),
+        "status": (0, " M package.py\n"),
+    }
+
+    def fake_run(*args, **kwargs):
+        returncode, stdout = outputs[args[3]]
+        return CompletedProcess(args, returncode, stdout=stdout, stderr="")
+
+    monkeypatch.setattr("gh_action.action.run", fake_run)
+
+    assert describe_thecrawl_revision(tmp_path) == "7416d45ed9f2 (main, dirty)"
+
+
+def test_describe_thecrawl_revision_handles_non_git_directory(monkeypatch, tmp_path):
+    def fake_run(*args, **kwargs):
+        return CompletedProcess(args, 128, stdout="", stderr="not a git repository")
+
+    monkeypatch.setattr("gh_action.action.run", fake_run)
+
+    assert describe_thecrawl_revision(tmp_path) == "unknown (not a Git checkout)"
 
 
 def test_extract_effective_tag_prefixes_preserves_registry_semantics():

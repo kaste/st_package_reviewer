@@ -103,6 +103,7 @@ def main(argv: list[str] | None = None) -> None:
             console.write(f"::error ::{exc}")
             raise SystemExit(2)
         console.write(f"Using thecrawl at: {crawler_repo}")
+        console.write(f"thecrawl revision: {describe_thecrawl_revision(crawler_repo)}")
 
     failures = 0
     with tempfile.TemporaryDirectory() as tmp_s:
@@ -1173,6 +1174,30 @@ def command_exists(name: str) -> bool:
 def init_review_md(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("", encoding="utf-8")
+
+
+def describe_thecrawl_revision(repo: Path) -> str:
+    revision = run(
+        "git", "-C", str(repo), "rev-parse", "--short=12", "HEAD",
+        capture_output=True,
+        check=False,
+    )
+    if revision.returncode != 0:
+        return "unknown (not a Git checkout)"
+
+    branch = run(
+        "git", "-C", str(repo), "symbolic-ref", "--short", "-q", "HEAD",
+        capture_output=True,
+        check=False,
+    )
+    status = run(
+        "git", "-C", str(repo), "status", "--porcelain",
+        capture_output=True,
+        check=False,
+    )
+    ref = branch.stdout.strip() if branch.returncode == 0 else "detached HEAD"
+    state = "dirty" if status.stdout.strip() else "clean"
+    return "{} ({}, {})".format(revision.stdout.strip(), ref, state)
 
 
 def setup_thecrawl(src: str, target: Path, console: Console) -> Path:
