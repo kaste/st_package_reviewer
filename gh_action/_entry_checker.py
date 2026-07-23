@@ -10,7 +10,8 @@ from urllib.request import Request, urlopen
 
 
 class Logger(Protocol):
-    def write(self, message: str) -> None: ...
+    def write(self, message: str) -> None:
+        ...
 
 
 def review_package_entry(
@@ -630,5 +631,3 @@ def strip_git_suffix(value: str) -> str:
     if value.endswith(".git"):
         return value[:-4]
     return value
-
-
