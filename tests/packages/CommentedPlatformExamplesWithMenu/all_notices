@@ -1,0 +1,11 @@
+- These keymaps only contain commented examples: 'Default (Linux).sublime-keymap', 'Default (OSX).sublime-keymap', and 'Default (Windows).sublime-keymap'. Consider moving the examples to 'Example.sublime-keymap'. Sublime Text will not load key bindings from that file, so the examples can be left uncommented for easier copy/paste. Adjust the 'Key Bindings' entry in 'Main.sublime-menu' to:
+  ```json
+  {
+    "caption": "Example Key Bindings",
+    "command": "edit_settings",
+    "args": {
+      "base_file": "${packages}/CommentedExamples/Example.sublime-keymap",
+      "user_file": "${packages}/User/Default (${platform}).sublime-keymap"
+    }
+  }
+  ```
