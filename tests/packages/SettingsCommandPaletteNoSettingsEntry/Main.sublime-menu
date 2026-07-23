@@ -1,0 +1,25 @@
+[
+    {
+        "caption": "Preferences",
+        "children": [
+            {
+                "caption": "Package Settings",
+                "children": [
+                    {
+                        "caption": "PaletteSettings",
+                        "children": [
+                            {
+                                "caption": "Settings",
+                                "command": "edit_settings",
+                                "args": {
+                                    "base_file": "${packages}/PaletteSettings/PaletteSettings.sublime-settings",
+                                    "default": "{}"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]

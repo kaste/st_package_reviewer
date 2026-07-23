@@ -1,0 +1,10 @@
+- Package does not add an entry to the Command Palette for editing its main settings. Add this to 'Default.sublime-commands':
+  ```json
+  {
+    "caption": "Preferences: PaletteSettings Settings",
+    "command": "edit_settings",
+    "args": {
+      "base_file": "${packages}/PaletteSettings/PaletteSettings.sublime-settings"
+    }
+  }
+  ```

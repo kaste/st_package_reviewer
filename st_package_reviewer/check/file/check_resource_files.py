@@ -1,4 +1,5 @@
 import difflib
+import json
 import logging
 from pathlib import PurePosixPath
 import re
@@ -264,24 +265,24 @@ class CheckCommandPaletteSettingsEntry(FileChecker):
         if not settings_files:
             return
 
+        expected_base_files = sorted(_resource_paths_for_files(self, settings_files))
         commands_paths = sorted(self.glob("**/*.sublime-commands"))
         if not commands_paths:
-            self.warn("Package defines '.sublime-settings' files but is missing "
-                      "'Default.sublime-commands' to add a Command Palette entry "
-                      "to edit them.")
+            self.warn(_missing_command_palette_file_warning(
+                self.package_name,
+                expected_base_files,
+            ))
             return
 
-        expected_base_files = sorted(_resource_paths_for_files(self, settings_files))
         entries_with_paths = self._find_settings_entries(commands_paths)
         warning_path = self._warning_path(commands_paths, entries_with_paths)
 
         if not entries_with_paths:
-            with self.file_context(warning_path):
-                self.warn(_missing_command_palette_settings_entry_warning(
-                    warning_path,
-                    self.package_name,
-                    expected_base_files,
-                ))
+            self.warn(_missing_command_palette_settings_entry_warning(
+                self.rel_path(warning_path),
+                self.package_name,
+                expected_base_files,
+            ))
             return
 
         matching_entries = [
@@ -736,13 +737,46 @@ def _missing_command_palette_base_file_warning(expected_base_files, entries,
     return message
 
 
+def _missing_command_palette_file_warning(package_name, expected_base_files):
+    snippet = _command_palette_settings_snippet(
+        package_name,
+        expected_base_files[0],
+        include_array=True,
+    )
+    return (
+        "Package does not add an entry to the Command Palette for editing its "
+        "main settings. Create a 'Default.sublime-commands' file in the package "
+        "with this content:\n{}"
+        .format(_markdown_code_block(snippet))
+    )
+
+
 def _missing_command_palette_settings_entry_warning(commands_path, package_name,
                                                     expected_base_files):
-    expected = _format_expected_base_files(expected_base_files)
-    return ("{} has no settings entry using edit_settings for {!r}. Add an "
-            "entry with caption 'Preferences: {} Settings' and 'args.base_file' "
-            "{}."
-            .format(_commands_file_label(commands_path), package_name, package_name, expected))
+    destination = repr(commands_path.as_posix())
+    snippet = _command_palette_settings_snippet(package_name, expected_base_files[0])
+    return (
+        "Package does not add an entry to the Command Palette for editing its "
+        "main settings. Add this to {}:\n{}"
+        .format(destination, _markdown_code_block(snippet))
+    )
+
+
+def _command_palette_settings_snippet(package_name, base_file, include_array=False):
+    entry = {
+        "caption": "Preferences: {} Settings".format(package_name),
+        "command": "edit_settings",
+        "args": {"base_file": base_file},
+    }
+    value = [entry] if include_array else entry
+    return json.dumps(value, indent=2, ensure_ascii=False)
+
+
+def _markdown_code_block(code):
+    lines = ["  ```json"]
+    lines.extend("  {}".format(line) for line in code.splitlines())
+    lines.append("  ```")
+    return "\n".join(lines)
 
 
 def _commands_file_label(path):

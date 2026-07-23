@@ -87,10 +87,18 @@ def _read_check_asserts(base_path):
                 message = line[2:].strip()
                 details = []
 
+                in_fenced_block = False
                 for line in line_iter:
                     if not line.startswith(' '):
                         break
-                    details.append(line.strip())
+
+                    stripped_line = line.strip()
+                    if in_fenced_block or stripped_line.startswith("```"):
+                        message += "\n" + line.rstrip("\r\n")
+                        if stripped_line.startswith("```"):
+                            in_fenced_block = not in_fenced_block
+                    else:
+                        details.append(stripped_line)
                 else:
                     line = None
 
