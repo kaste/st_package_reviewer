@@ -64,6 +64,12 @@ class CheckJsoncFiles(FileChecker):
             if file_path.suffix == ".sublime-keymap" and _is_standard_keymap_name(file_path.name):
                 return True
 
+            if file_path.suffix == ".sublime-commands":
+                if _example_file_is_referenced(self, file_path):
+                    return False
+                self.notice(_undocumented_commands_example_notice(self, file_path), context=())
+                return False
+
             context = None
             if file_path.suffix == ".sublime-keymap" and file_path.parent == self.base_path:
                 context = ()
@@ -162,6 +168,41 @@ def _example_key_bindings_menu_entry(package_name):
     lines.extend("  {}".format(line) for line in code.splitlines())
     lines.append("  ```")
     return "\n".join(lines)
+
+
+def _example_file_is_referenced(file_checker, example_path):
+    reference_paths = set(file_checker.glob("**/Main.sublime-menu"))
+    reference_paths.update(file_checker.glob("**/*.md"))
+    reference_paths.update(file_checker.glob("**/*.markdown"))
+    reference_paths.update(file_checker.glob("**/*.rst"))
+    reference_paths.update(file_checker.glob("**/*.txt"))
+    reference_paths.update(
+        path for path in file_checker.glob("**/README*")
+        if path.is_file()
+    )
+
+    names = {
+        example_path.name.casefold(),
+        file_checker.rel_path(example_path).as_posix().casefold(),
+    }
+    for path in reference_paths:
+        if path == example_path or not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore").casefold()
+        if any(name in text for name in names):
+            return True
+    return False
+
+
+def _undocumented_commands_example_notice(file_checker, file_path):
+    name = _quoted_rel_path(file_checker, file_path)
+    return (
+        "{} contains only commented examples but does not appear to be "
+        "referenced from 'Main.sublime-menu' or package documentation. "
+        "Consider adding a menu entry or documenting the examples so users "
+        "can find them."
+        .format(name)
+    )
 
 
 def _example_file_notice(file_path):

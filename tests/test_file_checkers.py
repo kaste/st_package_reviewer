@@ -9,6 +9,7 @@ import pytest
 from st_package_reviewer.runner import CheckRunner
 from st_package_reviewer.check import file as file_c
 from st_package_reviewer.check.file.ast.check_initialized_api import CheckInitializedApiUsage
+from st_package_reviewer.check.file.check_resource_file_validity import CheckJsoncFiles
 from st_package_reviewer.check.file.ast.sublime_api_classes import (
     SUBLIME_API_CLASS_BUILDS,
 )
@@ -185,6 +186,25 @@ def test_reviewer_integration(package_path, check_runner):
 
     if failures:
         assert not check_runner.result()
+
+
+def test_commented_commands_referenced_from_main_menu_are_silent(tmp_path):
+    commands_path = tmp_path / "Example.sublime-commands"
+    commands_path.write_text(
+        '[\n// { "caption": "Example", "command": "example" }\n]\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "Main.sublime-menu").write_text(
+        '[{"args": {"base_file": "${packages}/Example/Example.sublime-commands"}}]\n',
+        encoding="utf-8",
+    )
+
+    checker = CheckJsoncFiles(tmp_path)
+    checker.perform_check()
+
+    assert not checker.failures
+    assert not checker.warnings
+    assert not checker.notices
 
 
 def test_initialized_api_metadata_records_completion_item_build():
