@@ -63,7 +63,11 @@ class CheckJsoncFiles(FileChecker):
         if _contains_commented_example(file_path.suffix, source):
             if file_path.suffix == ".sublime-keymap" and _is_standard_keymap_name(file_path.name):
                 return True
-            self.notice(_example_file_notice(file_path))
+
+            context = None
+            if file_path.suffix == ".sublime-keymap" and file_path.parent == self.base_path:
+                context = ()
+            self.notice(_example_file_notice(file_path), context=context)
             return False
 
         self.fail("Remove this file, it doesn't define anything")
