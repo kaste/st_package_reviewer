@@ -2,8 +2,13 @@ import ast
 import logging
 
 from . import AstChecker
+from .sublime_api_classes import SUBLIME_API_CLASS_BUILDS
 
 l = logging.getLogger(__name__)
+
+# These functions query immutable host information and have always been safe
+# to call before the rest of the Sublime API is initialized.
+IMPORT_SAFE_API_FUNCTIONS = ("platform", "arch", "version", "channel")
 
 
 def _is_derived_from_listener(node):
@@ -96,7 +101,11 @@ class CheckInitializedApiUsage(AstChecker):
         except AttributeError:
             return
         else:
-            if id_ == "sublime" and attr not in ("platform", "arch", "version", "channel"):
+            if (
+                id_ == "sublime"
+                and attr not in IMPORT_SAFE_API_FUNCTIONS
+                and attr not in SUBLIME_API_CLASS_BUILDS
+            ):
                 with self.node_context(node):
                     self.fail(
                         "Calling unsafe method {!r} of sublime module "

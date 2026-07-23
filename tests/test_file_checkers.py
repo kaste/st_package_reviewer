@@ -9,6 +9,9 @@ import pytest
 from st_package_reviewer.runner import CheckRunner
 from st_package_reviewer.check import file as file_c
 from st_package_reviewer.check.file.ast.check_initialized_api import CheckInitializedApiUsage
+from st_package_reviewer.check.file.ast.sublime_api_classes import (
+    SUBLIME_API_CLASS_BUILDS,
+)
 
 
 def _collect_test_packages():
@@ -174,6 +177,10 @@ def test_reviewer_integration(package_path, check_runner):
 
     if failures:
         assert not check_runner.result()
+
+
+def test_initialized_api_metadata_records_completion_item_build():
+    assert SUBLIME_API_CLASS_BUILDS["CompletionItem"] == 4050
 
 
 def test_initialized_api_suggestion_is_attached_to_failure():

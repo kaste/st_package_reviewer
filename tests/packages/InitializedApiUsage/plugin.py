@@ -36,3 +36,6 @@ def random_func():
 
 # but not if called from within the global module scope
 random_func()
+
+# Documented API classes are safe to construct before API initialization.
+completion = sublime.CompletionItem("safe")
