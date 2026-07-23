@@ -391,8 +391,9 @@ class CheckKeymapMenuEntry(FileChecker):
 
         menu_path = _find_main_menu_path(self)
         if menu_path is None:
-            self.notice("Package defines key bindings but has no 'Main.sublime-menu' "
-                        "entry to help users find or customize them.")
+            self.notice("Package defines key bindings but provides no menu entry "
+                        "to help users find or customize them. Consider adding a "
+                        "'Main.sublime-menu' file.")
             return
 
         with self.file_context(menu_path):
@@ -418,8 +419,13 @@ class CheckKeymapMenuEntry(FileChecker):
                                                      loose=True)
 
             if not key_binding_entries:
-                self.notice("Package defines key bindings but has no 'Main.sublime-menu' "
-                            "entry to help users find or customize them.")
+                menu_name = repr(self.rel_path(menu_path).as_posix())
+                self.notice(
+                    "Package defines key bindings but provides no 'Key Bindings' "
+                    "entry in {} to help users find or customize them."
+                    .format(menu_name),
+                    context=(),
+                )
                 return
 
             valid_entries, missing_command_count, custom_commands = _analyze_settings_commands(
