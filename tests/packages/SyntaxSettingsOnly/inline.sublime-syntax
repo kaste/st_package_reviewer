@@ -1,0 +1,6 @@
+%YAML 1.2
+---
+name: GitSavvy Inline
+scope: text.git-savvy-inline
+contexts:
+  main: []

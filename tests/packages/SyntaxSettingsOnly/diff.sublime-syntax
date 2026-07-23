@@ -1,0 +1,6 @@
+%YAML 1.2
+---
+name: GitSavvy Diff
+scope: text.git-savvy-diff
+contexts:
+  main: []

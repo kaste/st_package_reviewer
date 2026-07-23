@@ -1,1 +1,1 @@
-- Package defines syntax settings. Consider adding an entry in 'Main.sublime-menu' and 'Default.sublime-commands' to help users find or customize them.
+- Package defines syntax-specific settings for the Carve syntax. Consider adding entries to 'Main.sublime-menu' and 'Default.sublime-commands' to help users find or customize them.

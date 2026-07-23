@@ -325,10 +325,9 @@ class CheckCommandPaletteSettingsEntry(FileChecker):
 
 class CheckSyntaxSettingsEntries(FileChecker):
 
-    NOTICE = (
-        "Package defines syntax settings. Consider adding an entry in "
-        "'Main.sublime-menu' and 'Default.sublime-commands' to help users "
-        "find or customize them."
+    RECOMMENDATION = (
+        "Consider adding entries to 'Main.sublime-menu' and "
+        "'Default.sublime-commands' to help users find or customize them."
     )
 
     def check(self):
@@ -345,7 +344,25 @@ class CheckSyntaxSettingsEntries(FileChecker):
         ):
             return
 
-        self.notice(self.NOTICE)
+        syntax_names = self._syntax_names(syntax_settings_files)
+        noun = "syntax" if len(syntax_names) == 1 else "syntaxes"
+        self.notice(
+            "Package defines syntax-specific settings for the {} {}. {}"
+            .format(self._format_syntax_names(syntax_names), noun, self.RECOMMENDATION)
+        )
+
+    def _syntax_names(self, syntax_settings_files):
+        return sorted(
+            {path.stem for path in syntax_settings_files},
+            key=lambda name: (name.casefold(), name),
+        )
+
+    def _format_syntax_names(self, names):
+        if len(names) == 1:
+            return names[0]
+        if len(names) == 2:
+            return " and ".join(names)
+        return "{}, and {}".format(", ".join(names[:-1]), names[-1])
 
     def _has_main_menu_entry(self, syntax_settings_files):
         menu_path = _find_main_menu_path(self)
