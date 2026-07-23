@@ -58,6 +58,77 @@ def test_repo_tags_passes_with_final_semver(tmp_path):
     )
 
 
+def test_repo_tags_accepts_explicit_tags_true_semantics(tmp_path):
+    repo_path = _create_git_repo(tmp_path)
+    _git(repo_path, "tag", "v1.2.3")
+
+    checker = CheckRepoTags(
+        repo_path,
+        repo=str(repo_path),
+        tag_prefixes=("",),
+    )
+    checker.perform_check()
+
+    assert not checker.failures
+    assert any(
+        notice.message.endswith("is tagged with 1.2.3. ✅")
+        for notice in checker.notices
+    )
+
+
+def test_repo_tags_accepts_registry_tag_prefix(tmp_path):
+    repo_path = _create_git_repo(tmp_path)
+    _git(repo_path, "tag", "st4-v1.2.3")
+
+    checker = CheckRepoTags(
+        repo_path,
+        repo=str(repo_path),
+        tag_prefixes=("st4-v",),
+    )
+    checker.perform_check()
+
+    assert not checker.failures
+    assert not checker.warnings
+    assert any(
+        notice.message.endswith("is tagged with 1.2.3. ✅")
+        for notice in checker.notices
+    )
+
+
+def test_repo_tags_only_accepts_configured_prefixes(tmp_path):
+    repo_path = _create_git_repo(tmp_path)
+    _git(repo_path, "tag", "v1.2.3")
+
+    checker = CheckRepoTags(
+        repo_path,
+        repo=str(repo_path),
+        tag_prefixes=("st4-v",),
+    )
+    checker.perform_check()
+
+    assert [failure.message for failure in checker.failures] == [
+        "No semantic version tags found",
+    ]
+
+
+def test_repo_tags_accepts_multiple_registry_tag_prefixes(tmp_path):
+    repo_path = _create_git_repo(tmp_path)
+    _git(repo_path, "tag", "st4-v1.2.3")
+
+    checker = CheckRepoTags(
+        repo_path,
+        repo=str(repo_path),
+        tag_prefixes=("", "st4-v"),
+    )
+    checker.perform_check()
+
+    assert not checker.failures
+    assert any(
+        notice.message.endswith("is tagged with 1.2.3. ✅")
+        for notice in checker.notices
+    )
+
+
 def test_repo_tags_notices_when_tip_is_behind_latest_tag(tmp_path):
     repo_path = _create_git_repo(tmp_path)
     _git(repo_path, "tag", "v1.2.3")

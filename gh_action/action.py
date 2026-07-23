@@ -182,7 +182,7 @@ def main(argv: list[str] | None = None) -> None:
                     continue
 
             with console.group(f"Inspecting effective mode: {pkg}"):
-                tags_mode, repo_url = check_pkg_crawl_mode(
+                tags_mode, repo_url, tag_prefixes = check_pkg_crawl_mode(
                     crawler_repo,
                     head_reg,
                     pkg,
@@ -202,8 +202,11 @@ def main(argv: list[str] | None = None) -> None:
             review_repo_args: list[str] = []
             review_wsfile = regular_wsfile
             if tags_mode and repo_url:
-                # saved for the later review, tells the reviewer to run the repo checks
+                # Saved for the later review; tells the reviewer to run repo checks
+                # using the tag semantics from the effective registry releases.
                 review_repo_args = ["--repo", repo_url]
+                for tag_prefix in tag_prefixes:
+                    review_repo_args.extend(["--tag-prefix", tag_prefix])
 
                 tags_reg = tmpdir / "tags_mode_registry" / f"{pkg}.json"
                 with console.group(f"Preparing tags-mode branch crawl: {pkg}"):
@@ -645,7 +648,7 @@ def check_pkg_crawl_mode(
     registry_file: Path,
     package_name: str,
     console: Console,
-) -> tuple[bool, str]:
+) -> tuple[bool, str, tuple[str, ...]]:
     explain = run(
         "uv",
         "run",
@@ -664,11 +667,11 @@ def check_pkg_crawl_mode(
         console.write(explain.stdout.rstrip("\n"))
 
     if explain.returncode != 0:
-        return False, ""
+        return False, "", ()
 
     lines = [line.strip() for line in explain.stdout.splitlines() if line.strip()]
     if not lines:
-        return False, ""
+        return False, "", ()
 
     status_line = ""
     json_lines = lines
@@ -679,11 +682,12 @@ def check_pkg_crawl_mode(
     try:
         normalized_package = json.loads("\n".join(json_lines))
     except json.JSONDecodeError:
-        return False, ""
+        return False, "", ()
 
     tags_mode = "tags-mode" in status_line.lower()
     repo_url = extract_effective_release_base(normalized_package)
-    return tags_mode, repo_url
+    tag_prefixes = extract_effective_tag_prefixes(normalized_package)
+    return tags_mode, repo_url, tag_prefixes
 
 
 def extract_effective_release_base(normalized_package: dict[str, object]) -> str:
@@ -692,6 +696,25 @@ def extract_effective_release_base(normalized_package: dict[str, object]) -> str
         return ""
 
     return releases[-1].get("base", "")
+
+
+def extract_effective_tag_prefixes(
+    normalized_package: dict[str, object],
+) -> tuple[str, ...]:
+    releases = normalized_package.get("releases")
+    if not isinstance(releases, list):
+        return ()
+
+    prefixes: list[str] = []
+    for release in releases:
+        if not isinstance(release, dict):
+            continue
+        tags = release.get("tags")
+        prefix = "" if tags is True else tags
+        if isinstance(prefix, str) and prefix not in prefixes:
+            prefixes.append(prefix)
+
+    return tuple(prefixes)
 
 
 def crawl_package(

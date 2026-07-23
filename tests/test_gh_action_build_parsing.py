@@ -2,6 +2,7 @@ import pytest
 
 from gh_action.action import (
     DEFAULT_REVIEW_ST_BUILD,
+    extract_effective_tag_prefixes,
     parse_sublime_text_min,
     resolve_package_platforms,
     resolve_package_required_st_build,
@@ -27,6 +28,24 @@ from gh_action.action import (
 )
 def test_parse_sublime_text_min(selector, expected):
     assert parse_sublime_text_min(selector) == expected
+
+
+def test_extract_effective_tag_prefixes_preserves_registry_semantics():
+    package = {
+        "releases": [
+            {"tags": True},
+            {"tags": "st4-v"},
+            {"tags": "st4-v", "platforms": ["windows"]},
+            {"branch": True},
+        ],
+    }
+
+    assert extract_effective_tag_prefixes(package) == ("", "st4-v")
+
+
+def test_extract_effective_tag_prefixes_ignores_invalid_releases():
+    assert extract_effective_tag_prefixes({}) == ()
+    assert extract_effective_tag_prefixes({"releases": [None, {"tags": False}]}) == ()
 
 
 def test_resolve_package_required_st_build_uses_maximum():

@@ -81,7 +81,8 @@ $ pip install git+https://github.com/kaste/st_package_reviewer.git@<TAG_OR_SHA>
 ```
 usage: st_package_reviewer [-h] [--version] [--clip] [--repo-only]
                            [--package-name PACKAGE_NAME] [--repo [REPO]]
-                           [--st-build ST_BUILD] [--platforms PLATFORMS]
+                           [--tag-prefix TAG_PREFIXES] [--st-build ST_BUILD]
+                           [--platforms PLATFORMS]
                            [-w] [--compact] [-v] [--debug]
                            [path_or_URL [path_or_URL ...]]
 
@@ -101,6 +102,9 @@ optional arguments:
   --repo [REPO]         Enable repository checks for package paths.
                         Optional value: git repo path or URL.
                         Default: current directory (.).
+  --tag-prefix TAG_PREFIXES
+                        Expected Package Control tag prefix. Repeat for multiple
+                        prefixes; an empty value has tags: true semantics.
   --st-build ST_BUILD   Minimum required Sublime Text build.
                         Default: 4180.
   --platforms PLATFORMS

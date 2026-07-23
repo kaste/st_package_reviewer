@@ -49,17 +49,29 @@ def _parse_version(version):
     )
 
 
-def _parse_version_from_tag(tag_name):
-    if tag_name.startswith("v"):
-        tag_name = tag_name[1:]
+def _parse_version_from_tag(tag_name, tag_prefixes=None):
+    version_string = _version_string_from_tag(tag_name, tag_prefixes)
+    if version_string is None:
+        return None
+    return _parse_version(version_string)
 
-    return _parse_version(tag_name)
 
+def _version_string_from_tag(tag_name, tag_prefixes=None):
+    if tag_prefixes is None:
+        return tag_name.removeprefix("v")
 
-def _normalize_tag_name(tag_name):
-    if tag_name.startswith("v"):
-        return tag_name[1:]
-    return tag_name
+    for prefix in tag_prefixes:
+        if prefix:
+            if not tag_name.startswith(prefix):
+                continue
+            version_string = tag_name.removeprefix(prefix)
+        else:
+            version_string = tag_name.removeprefix("v")
+
+        if _parse_version(version_string) is not None:
+            return version_string
+
+    return None
 
 
 def _semver_sort_key(version):
@@ -81,10 +93,10 @@ def git(*args):
     return proc.stdout.strip()
 
 
-def _parse_semver_tags(tag_names):
+def _parse_semver_tags(tag_names, tag_prefixes=None):
     parsed = []
     for tag_name in tag_names:
-        version = _parse_version_from_tag(tag_name)
+        version = _parse_version_from_tag(tag_name, tag_prefixes)
         if version is not None:
             parsed.append((tag_name, version))
     return parsed
@@ -94,8 +106,8 @@ def _latest_semver_tag(semver_tags):
     return max(semver_tags, key=lambda item: _semver_sort_key(item[1]))[0]
 
 
-def _select_best_semver_tag(tag_names):
-    parsed_versions = _parse_semver_tags(tag_names)
+def _select_best_semver_tag(tag_names, tag_prefixes=None):
+    parsed_versions = _parse_semver_tags(tag_names, tag_prefixes)
     if not parsed_versions:
         return None
 
@@ -103,7 +115,7 @@ def _select_best_semver_tag(tag_names):
         parsed_versions,
         key=lambda item: _semver_sort_key(item[1]),
     )
-    return _normalize_tag_name(best_tag)
+    return _version_string_from_tag(best_tag, tag_prefixes)
 
 
 class CheckRepoTags(FileChecker):
@@ -123,7 +135,7 @@ class CheckRepoTags(FileChecker):
             self.fail("Unable to inspect repository tags: {}".format(error))
             return
 
-        semver_tags = _parse_semver_tags(tags)
+        semver_tags = _parse_semver_tags(tags, self.tag_prefixes)
         if not semver_tags:
             message = "No semantic version tags found"
             if not tags:
@@ -153,7 +165,7 @@ class CheckRepoTags(FileChecker):
             self.notice(
                 "Latest version {} is {} commit{} behind tip of {}."
                 .format(
-                    _normalize_tag_name(latest_semver_tag),
+                    _version_string_from_tag(latest_semver_tag, self.tag_prefixes),
                     commits_behind,
                     "s" if commits_behind != 1 else "",
                     branch_name,
@@ -210,7 +222,10 @@ class CheckRepoTags(FileChecker):
         tags_raw = git(
             "-C", str(repo_path), "tag", "--points-at", "HEAD"
         )
-        tip_tag_version = _select_best_semver_tag(tags_raw.splitlines() if tags_raw else [])
+        tip_tag_version = _select_best_semver_tag(
+            tags_raw.splitlines() if tags_raw else [],
+            self.tag_prefixes,
+        )
 
         commits_behind = self._count_commits_behind_local(repo_path, latest_semver_tag)
         return branch_name, tip_tag_version, commits_behind
@@ -244,7 +259,8 @@ class CheckRepoTags(FileChecker):
                 "-C", str(repo_path), "tag", "--points-at", "FETCH_HEAD"
             )
             tip_tag_version = _select_best_semver_tag(
-                tip_tags_raw.splitlines() if tip_tags_raw else []
+                tip_tags_raw.splitlines() if tip_tags_raw else [],
+                self.tag_prefixes,
             )
 
             commits_behind = self._count_commits_behind_clone(repo_path, latest_semver_tag)

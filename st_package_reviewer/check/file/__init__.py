@@ -14,11 +14,20 @@ class FileChecker(Checker):
     Also adds utilities for file systems to the Checker class.
     """
 
-    def __init__(self, base_path, package_name=None, repo=None, st_build=4180, platforms="all"):
+    def __init__(
+        self,
+        base_path,
+        package_name=None,
+        repo=None,
+        st_build=4180,
+        platforms="all",
+        tag_prefixes=None,
+    ):
         super().__init__()
         self.base_path = base_path
         self.package_name = package_name
         self.repo = repo
+        self.tag_prefixes = tag_prefixes
         self.st_build = st_build
         self.platforms = normalize_platforms(platforms)
 

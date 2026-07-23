@@ -77,6 +77,9 @@ def main(args=None):
     parser.add_argument("--repo", nargs='?', const='.',
                         help="Enable repository checks for package paths. Optional value: "
                              "git repo path or URL. Default: current directory (.).")
+    parser.add_argument("--tag-prefix", action="append", dest="tag_prefixes",
+                        help="Expected Package Control tag prefix. Repeat for multiple "
+                             "prefixes; an empty value has tags: true semantics.")
     parser.add_argument("--st-build", type=int, default=4180,
                         help="Minimum required Sublime Text build. "
                              "Default: 4180.")
@@ -172,6 +175,8 @@ def main(args=None):
             file_check_kwargs['package_name'] = args.package_name
         if args.repo is not None:
             file_check_kwargs['repo'] = args.repo
+        if args.tag_prefixes is not None:
+            file_check_kwargs['tag_prefixes'] = args.tag_prefixes
         file_check_kwargs['st_build'] = args.st_build
         file_check_kwargs['platforms'] = args.platforms
 
