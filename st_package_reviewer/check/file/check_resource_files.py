@@ -111,6 +111,7 @@ class CheckSettingsMenuEntry(FileChecker):
         settings_files = _find_package_settings_files(
             sorted(self.glob("**/*.sublime-settings")),
             self.package_name,
+            sorted(self.globs("**/*.sublime-syntax", "**/*.tmLanguage")),
         )
         if not settings_files:
             return
@@ -258,6 +259,7 @@ class CheckCommandPaletteSettingsEntry(FileChecker):
         settings_files = _find_package_settings_files(
             sorted(self.glob("**/*.sublime-settings")),
             self.package_name,
+            sorted(self.globs("**/*.sublime-syntax", "**/*.tmLanguage")),
         )
         if not settings_files:
             return
@@ -567,9 +569,13 @@ def _find_base_file_values(entries):
     return sorted(found_base_files), missing_count
 
 
-def _find_package_settings_files(settings_files, package_name):
+def _find_package_settings_files(settings_files, package_name, syntax_files):
     expected_name = "{}.sublime-settings".format(package_name)
-    return [path for path in settings_files if path.name == expected_name]
+    return [
+        path for path in settings_files
+        if path.name == expected_name
+        and not _is_syntax_settings_file(path, syntax_files)
+    ]
 
 
 def _find_syntax_settings_files(settings_files, syntax_files):

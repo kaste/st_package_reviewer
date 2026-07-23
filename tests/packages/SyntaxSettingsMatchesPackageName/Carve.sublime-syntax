@@ -1,0 +1,6 @@
+%YAML 1.2
+---
+name: Carve
+scope: text.carve
+contexts:
+  main: []
