@@ -10,6 +10,7 @@ from st_package_reviewer.runner import CheckRunner
 from st_package_reviewer.check import file as file_c
 from st_package_reviewer.check.file.ast.check_initialized_api import CheckInitializedApiUsage
 from st_package_reviewer.check.file.check_resource_file_validity import CheckJsoncFiles
+from st_package_reviewer.check.file.check_resource_files import CheckMainMenuStructure
 from st_package_reviewer.check.file.ast.sublime_api_classes import (
     SUBLIME_API_CLASS_BUILDS,
 )
@@ -186,6 +187,25 @@ def test_reviewer_integration(package_path, check_runner):
 
     if failures:
         assert not check_runner.result()
+
+
+def test_nested_main_menu_structure_warning_includes_relative_path(tmp_path):
+    menu_path = tmp_path / "resources" / "Main.sublime-menu"
+    menu_path.parent.mkdir()
+    menu_path.write_text(
+        '[{"id": "preferences", "menu": '
+        '[{"id": "package_settings", "menu": []}]}]\n',
+        encoding="utf-8",
+    )
+
+    checker = CheckMainMenuStructure(tmp_path, package_name="Example")
+    checker.perform_check()
+
+    assert len(checker.warnings) == 2
+    assert all(
+        warning.context == ("File: resources/Main.sublime-menu",)
+        for warning in checker.warnings
+    )
 
 
 def test_commented_commands_referenced_from_main_menu_are_silent(tmp_path):

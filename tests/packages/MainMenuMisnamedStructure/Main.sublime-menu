@@ -1,0 +1,24 @@
+[
+    {
+        "id": "preferences",
+        "menu": [
+            {
+                "id": "package_settings",
+                "menu": [
+                    {
+                        "caption": "MainMenuMisnamedStructure",
+                        "menu": [
+                            {
+                                "caption": "Settings",
+                                "command": "edit_settings",
+                                "args": {
+                                    "base_file": "${packages}/MainMenuMisnamedStructure/MainMenuMisnamedStructure.sublime-settings"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]

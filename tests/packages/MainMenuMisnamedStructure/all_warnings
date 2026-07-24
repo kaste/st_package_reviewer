@@ -1,0 +1,4 @@
+- 'Main.sublime-menu' has nested entries under 'menu'; expected them under 'children'.
+- 'Main.sublime-menu' uses 'package_settings' as the menu id for Package Settings; expected 'package-settings'.
+- No valid Preferences > Package Settings > MainMenuMisnamedStructure menu path was found. A matching Settings entry exists, but it is not nested using the expected children structure.
+    File: Main.sublime-menu

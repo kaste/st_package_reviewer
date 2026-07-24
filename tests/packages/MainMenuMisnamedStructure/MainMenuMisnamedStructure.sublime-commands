@@ -1,0 +1,10 @@
+[
+    {
+        "caption": "Preferences: MainMenuMisnamedStructure Settings",
+        "command": "edit_settings",
+        "args": {
+            "base_file": "${packages}/MainMenuMisnamedStructure/MainMenuMisnamedStructure.sublime-settings",
+            "default": "{}"
+        }
+    }
+]

@@ -103,6 +103,22 @@ class CheckSettingsFileName(FileChecker):
                 ))
 
 
+class CheckMainMenuStructure(FileChecker):
+
+    def check(self):
+        for menu_path in self.glob("**/Main.sublime-menu"):
+            with self.file_context(menu_path):
+                menu_data = _load_menu_file(menu_path)
+                if menu_data is None:
+                    continue
+
+                is_root_menu = self.rel_path(menu_path).as_posix() == "Main.sublime-menu"
+                for warning, always_include_file in _main_menu_structure_warnings(
+                        menu_data, self.package_name):
+                    context = None if always_include_file or not is_root_menu else ()
+                    self.warn(warning, context=context)
+
+
 class CheckSettingsMenuEntry(FileChecker):
 
     def check(self):
@@ -125,7 +141,7 @@ class CheckSettingsMenuEntry(FileChecker):
 
         with self.file_context(menu_path):
             menu_data = _load_menu_file(menu_path)
-            if menu_data is None:
+            if menu_data is None or _has_known_main_menu_structure_error(menu_data):
                 return
 
             expected_base_files = sorted(_resource_paths_for_files(self, settings_files))
@@ -398,7 +414,8 @@ class CheckKeymapMenuEntry(FileChecker):
 
         with self.file_context(menu_path):
             menu_data = _load_menu_file(menu_path)
-            if menu_data is None or not self.package_name:
+            if (menu_data is None or not self.package_name
+                    or _has_known_main_menu_structure_error(menu_data)):
                 return
 
             package_node = _find_package_settings_node(menu_data, self.package_name)
@@ -835,6 +852,68 @@ def _mismatched_package_settings_entry_warning(caption, package_name):
         "package name, e.g. 'Package Settings > {}'."
         .format(caption, package_name)
     )
+
+
+def _main_menu_structure_warnings(menu_data, package_name):
+    nodes = list(_iter_menu_nodes_with_menu_alias(menu_data))
+    has_menu_alias = any(isinstance(node.get('menu'), list) for node in nodes)
+    has_bad_package_settings_id = any(
+        node.get('id') == 'package_settings' for node in nodes
+    )
+
+    if has_menu_alias:
+        yield (
+            "'Main.sublime-menu' has nested entries under 'menu'; expected them "
+            "under 'children'.",
+            False,
+        )
+
+    if has_bad_package_settings_id:
+        yield (
+            "'Main.sublime-menu' uses 'package_settings' as the menu id for Package "
+            "Settings; expected 'package-settings'.",
+            False,
+        )
+
+    matching_settings_entry = package_name and any(
+        _is_settings_entry_for_package(node, package_name) for node in nodes
+    )
+    if has_menu_alias and matching_settings_entry:
+        yield (
+            "No valid Preferences > Package Settings > {} menu path was found. "
+            "A matching Settings entry exists, but it is not nested using the "
+            "expected children structure."
+            .format(package_name),
+            True,
+        )
+
+
+def _has_known_main_menu_structure_error(menu_data):
+    return any(_main_menu_structure_warnings(menu_data, package_name=None))
+
+
+def _is_settings_entry_for_package(node, package_name):
+    if node.get('caption') != 'Settings' or node.get('command') != 'edit_settings':
+        return False
+
+    args = node.get('args')
+    return (
+        isinstance(args, dict)
+        and _package_resource_path(args.get('base_file'), package_name) is not None
+    )
+
+
+def _iter_menu_nodes_with_menu_alias(value):
+    if isinstance(value, dict):
+        yield value
+        for key in ('children', 'menu'):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                for child in nested:
+                    yield from _iter_menu_nodes_with_menu_alias(child)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _iter_menu_nodes_with_menu_alias(item)
 
 
 def _find_standard_settings_file_name(settings_files, package_name):
