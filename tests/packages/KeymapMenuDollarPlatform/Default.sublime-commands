@@ -1,0 +1,10 @@
+[
+  {
+    "caption": "Preferences: KeymapMenuDollarPlatform Settings",
+    "command": "edit_settings",
+    "args": {
+      "base_file": "${packages}/KeymapMenuDollarPlatform/KeymapMenuDollarPlatform.sublime-settings",
+      "default": "{}"
+    }
+  }
+]

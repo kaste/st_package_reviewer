@@ -1,0 +1,32 @@
+[
+  {
+    "id": "preferences",
+    "children": [
+      {
+        "id": "package-settings",
+        "children": [
+          {
+            "caption": "KeymapMenuDollarPlatform",
+            "children": [
+              {
+                "caption": "Settings",
+                "command": "edit_settings",
+                "args": {
+                  "base_file": "$packages/KeymapMenuDollarPlatform/KeymapMenuDollarPlatform.sublime-settings",
+                  "default": "{}"
+                }
+              },
+              {
+                "caption": "Key Bindings",
+                "command": "edit_settings",
+                "args": {
+                  "base_file": "$packages/KeymapMenuDollarPlatform/Default ($platform).sublime-keymap"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

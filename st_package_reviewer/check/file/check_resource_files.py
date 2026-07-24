@@ -21,6 +21,7 @@ SPECIFIC_PLATFORM_KEYMAP_RE = re.compile(
     r"^Default \((?:Linux|OSX|Windows)\)\.sublime-keymap$"
 )
 USER_PLATFORM_KEYMAP = "${packages}/User/Default (${platform}).sublime-keymap"
+SUBLIME_VARIABLE_RE = re.compile(r"\$(packages|platform)\b")
 
 
 class CheckPluginsInRoot(FileChecker):
@@ -182,7 +183,9 @@ class CheckSettingsMenuEntry(FileChecker):
 
             matching_entries = [
                 entry for entry in valid_entries
-                if entry.get('args', {}).get('base_file') in expected_base_files
+                if _is_expected_resource_path(
+                    entry.get('args', {}).get('base_file'), expected_base_files
+                )
             ]
             if not matching_entries:
                 self.warn(_missing_base_file_warning(
@@ -303,7 +306,9 @@ class CheckCommandPaletteSettingsEntry(FileChecker):
 
         matching_entries = [
             (path, entry) for path, entry in entries_with_paths
-            if entry.get('args', {}).get('base_file') in expected_base_files
+            if _is_expected_resource_path(
+                entry.get('args', {}).get('base_file'), expected_base_files
+            )
         ]
         if not matching_entries:
             with self.file_context(warning_path):
@@ -540,7 +545,7 @@ def _check_platform_keymap_edit_settings_entry(file_checker, source, base_file, 
 def _check_keymap_edit_settings_user_file(file_checker, entry, source, rel_path):
     args = entry.get('args', {})
     user_file = args.get('user_file')
-    if user_file == USER_PLATFORM_KEYMAP:
+    if _normalize_resource_variables(user_file) == USER_PLATFORM_KEYMAP:
         return
 
     has_user_file = 'user_file' in args
@@ -710,10 +715,22 @@ def _has_edit_settings_entry_for_files(file_checker, data, settings_files):
             continue
 
         args = node.get('args')
-        if isinstance(args, dict) and args.get('base_file') in expected_base_files:
+        if (isinstance(args, dict)
+                and _is_expected_resource_path(args.get('base_file'), expected_base_files)):
             return True
 
     return False
+
+
+def _is_expected_resource_path(resource, expected_resources):
+    return _normalize_resource_variables(resource) in expected_resources
+
+
+def _normalize_resource_variables(resource):
+    if not isinstance(resource, str):
+        return resource
+
+    return SUBLIME_VARIABLE_RE.sub(lambda match: "${{{}}}".format(match.group(1)), resource)
 
 
 def _resource_paths_for_files(file_checker, paths):
@@ -1038,6 +1055,7 @@ def _package_resource_path(resource, package_name):
     if not isinstance(resource, str):
         return None
 
+    resource = _normalize_resource_variables(resource)
     prefix = "${{packages}}/{}/".format(package_name)
     if not resource.startswith(prefix):
         return None
@@ -1050,7 +1068,7 @@ def _package_resource_path(resource, package_name):
 
 
 def _is_platform_keymap(rel_path):
-    return rel_path.name == PLATFORM_KEYMAP_NAME
+    return _normalize_resource_variables(rel_path.name) == PLATFORM_KEYMAP_NAME
 
 
 def _is_specific_platform_keymap(rel_path):

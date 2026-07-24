@@ -1,2 +1,2 @@
-- 'Default.sublime-commands' has a key bindings entry whose 'args.base_file' does not exist: ${packages}/StyleTokenHighlighter/Default ($platform).sublime-keymap
+- 'Default.sublime-commands' has a key bindings entry with 'args.base_file' set to ${packages}/StyleTokenHighlighter/Default ($platform).sublime-keymap, but no platform-specific keymap files exist. Add one for each platform you want to support: Default (Linux).sublime-keymap, Default (OSX).sublime-keymap, Default (Windows).sublime-keymap
     File: Default.sublime-commands
