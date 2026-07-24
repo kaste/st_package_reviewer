@@ -24,6 +24,18 @@ class CheckSubprocessPopenStartupinfo(AstChecker):
                 root = self._get_ast(path)
                 if root:
                     self._collect_subprocess_imports(root)
+                    self._has_file_hidden_window_evidence = (
+                        self._contains_subprocess_symbol(
+                            root,
+                            "STARTF_USESHOWWINDOW",
+                            self._startf_use_show_window_names,
+                        )
+                        or self._contains_subprocess_symbol(
+                            root,
+                            "CREATE_NO_WINDOW",
+                            self._create_no_window_names,
+                        )
+                    )
                     self.visit(root)
 
     def visit_Call(self, node):
@@ -36,6 +48,7 @@ class CheckSubprocessPopenStartupinfo(AstChecker):
         self._subprocess_module_names = {"subprocess"}
         self._popen_names = set()
         self._create_no_window_names = set()
+        self._startf_use_show_window_names = set()
 
         for node in ast.walk(root):
             if isinstance(node, ast.Import):
@@ -56,6 +69,7 @@ class CheckSubprocessPopenStartupinfo(AstChecker):
             if alias.name == "*":
                 self._popen_names.add("Popen")
                 self._create_no_window_names.add("CREATE_NO_WINDOW")
+                self._startf_use_show_window_names.add("STARTF_USESHOWWINDOW")
                 continue
 
             name = alias.asname or alias.name
@@ -63,6 +77,8 @@ class CheckSubprocessPopenStartupinfo(AstChecker):
                 self._popen_names.add(name)
             elif alias.name == "CREATE_NO_WINDOW":
                 self._create_no_window_names.add(name)
+            elif alias.name == "STARTF_USESHOWWINDOW":
+                self._startf_use_show_window_names.add(name)
 
     def _is_popen_call(self, node):
         func = node.func
@@ -75,25 +91,32 @@ class CheckSubprocessPopenStartupinfo(AstChecker):
         return isinstance(func, ast.Name) and func.id in self._popen_names
 
     def _has_hidden_window_handling(self, node):
+        has_kwargs_expansion = False
         for keyword in node.keywords:
-            if keyword.arg == "startupinfo":
-                return not _is_none(keyword.value)
-            if keyword.arg == "creationflags":
-                return self._contains_create_no_window(keyword.value)
-        return False
+            if keyword.arg is None:
+                has_kwargs_expansion = True
+            elif keyword.arg == "startupinfo" and not _is_none(keyword.value):
+                return True
+            elif keyword.arg == "creationflags" and self._contains_subprocess_symbol(
+                keyword.value,
+                "CREATE_NO_WINDOW",
+                self._create_no_window_names,
+            ):
+                return True
 
-    def _contains_create_no_window(self, node):
+        return has_kwargs_expansion and self._has_file_hidden_window_evidence
+
+    def _contains_subprocess_symbol(self, node, symbol, imported_names):
         for child in ast.walk(node):
             if isinstance(child, ast.Attribute):
                 if (
-                    child.attr == "CREATE_NO_WINDOW"
+                    child.attr == symbol
                     and isinstance(child.value, ast.Name)
                     and child.value.id in self._subprocess_module_names
                 ):
                     return True
-            elif isinstance(child, ast.Name):
-                if child.id in self._create_no_window_names:
-                    return True
+            elif isinstance(child, ast.Name) and child.id in imported_names:
+                return True
         return False
 
 
