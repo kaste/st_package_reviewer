@@ -250,7 +250,8 @@ class CheckRepoTags(FileChecker):
                 return None
 
             fetch_ok = git(
-                "-C", str(repo_path), "fetch", "origin", branch_name, "--tags"
+                "-c", "maintenance.auto=false",
+                "-C", str(repo_path), "fetch", "origin", branch_name, "--tags",
             )
             if fetch_ok is None:
                 return None
