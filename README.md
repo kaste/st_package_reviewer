@@ -9,9 +9,9 @@ Supports passing local file paths
 or URLs to GitHub repositories.
 
 This README focuses on installation and usage of the tool.
-For how to *resolve* failures or warnings
-reported by the tool,
-[refer to the wiki][wiki].
+The complete catalog of emitted failures, warnings, and notices is in
+[rules.md](rules.md). For how to *resolve* failures or warnings reported by the
+tool, [refer to the wiki][wiki].
 
 
 ## Usage as a GitHub Action
