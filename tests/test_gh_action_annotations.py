@@ -22,7 +22,10 @@ def test_emit_review_annotations_handles_singular_sections(tmp_path):
         "\n"
         "1 warning:\n"
         "- Risky\n"
-        "    File: Main.sublime-menu\n",
+        "    File: Main.sublime-menu\n"
+        "\n"
+        "1 internal error:\n"
+        "- `CheckExample` encountered an unexpected error.\n",
         encoding="utf-8",
     )
     console = CapturingConsole()
@@ -31,6 +34,10 @@ def test_emit_review_annotations_handles_singular_sections(tmp_path):
 
     assert "::error title=CHECK ::Broken" in console.stdout
     assert "::warning title=CHECK ::Risky" in console.stdout
+    assert (
+        "::error title=CHECK ::`CheckExample` encountered an unexpected error."
+        in console.stdout
+    )
 
 
 def test_emit_review_annotations_does_not_need_notice_header(tmp_path):

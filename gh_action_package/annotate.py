@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from typing import Iterable, TextIO
 
 
-HEADER_RE = re.compile(r"^(Reporting )?[0-9]+ (failure|warning)s?:$")
+HEADER_RE = re.compile(
+    r"^(Reporting )?[0-9]+ (failure|warning|internal error)s?:$"
+)
 FILE_RE = re.compile(r"^\s+File: (.+)$")
 LINE_RE = re.compile(r"^\s+Line: ([0-9]+)(?:, Column: ([0-9]+))?$")
 
@@ -35,7 +37,9 @@ def annotate_output(lines: Iterable[str], out: TextIO) -> None:
         if not header_match:
             continue
 
-        severity = "error" if header_match.group(2) == "failure" else "warning"
+        severity = (
+            "warning" if header_match.group(2) == "warning" else "error"
+        )
         annotation = Annotation(severity)
 
         for raw_line in line_iter:

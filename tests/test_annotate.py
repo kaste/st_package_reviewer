@@ -78,6 +78,20 @@ def test_annotate_output_accepts_compact_headers():
     assert "::warning title=CHECK,file=plugin.py,line=7::Compact warning\n" in output
 
 
+def test_annotate_output_emits_internal_error_annotations():
+    output = render_annotations(
+        "1 internal error:\n"
+        "- `CheckExample` encountered an unexpected error.\n"
+        "    Exception: bad value\n"
+        "\n"
+    )
+
+    assert (
+        "::error title=CHECK::`CheckExample` encountered an unexpected error.\n"
+        in output
+    )
+
+
 def test_annotate_output_accepts_plural_headers():
     output = render_annotations(
         "Reporting 2 failures:\n"

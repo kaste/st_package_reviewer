@@ -12,6 +12,7 @@ class CheckRunner:
         self.failures = []
         self.warnings = []
         self.notices = []
+        self.errors = []
         self._checked = False
 
     def run(self, *args, **kwargs):
@@ -25,6 +26,7 @@ class CheckRunner:
             self.failures.extend(checker_obj.failures)
             _extend_unique(self.warnings, checker_obj.warnings)
             self.notices.extend(checker_obj.notices)
+            self.errors.extend(checker_obj.errors)
             l.debug("Checker '%s' result: %s",
                     checker_obj.__class__.__name__,
                     checker_obj.result())
@@ -35,7 +37,7 @@ class CheckRunner:
         """Return whether checks ran without issues (`True`) or there were failures (`False`)."""
         if not self._checked:
             raise RuntimeError("Check has not been performed yet")
-        success = not bool(self.failures)
+        success = not bool(self.failures or self.errors)
         if self.fail_on_warnings:
             success &= not bool(self.warnings)
         return success
@@ -51,9 +53,23 @@ class CheckRunner:
         if self.notices:
             for notice in self._ordered_notices(self.notices):
                 notice.report(file=file)
+        if self.errors:
+            error_reason = (
+                "an internal error" if len(self.errors) == 1 else "internal errors"
+            )
+            print(
+                "- The review was incomplete due to {}; see below.".format(error_reason),
+                file=file,
+            )
+        if self.notices or self.errors:
             print(file=file)  # new line
 
-        if self.failures or self.warnings:
+        if self.errors:
+            self._report_populated_groups(file, prefix)
+            if self.failures or self.warnings:
+                print(file=file)  # new line
+            self._report_group("internal error", self.errors, file, prefix)
+        elif self.failures or self.warnings:
             self._report_group("failure", self.failures, file, prefix)
 
             print(file=file)  # new line
@@ -63,6 +79,17 @@ class CheckRunner:
             print("No failures, no warnings. 👍", file=file)
 
         print(file=file)  # new line
+
+    def _report_populated_groups(self, file, prefix):
+        populated_groups = [
+            ("failure", self.failures),
+            ("warning", self.warnings),
+        ]
+        populated_groups = [group for group in populated_groups if group[1]]
+        for index, (name, reports) in enumerate(populated_groups):
+            if index:
+                print(file=file)  # new line
+            self._report_group(name, reports, file, prefix)
 
     def _report_group(self, name, reports, file, prefix):
         if reports:

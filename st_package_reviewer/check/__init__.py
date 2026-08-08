@@ -20,6 +20,7 @@ class Checker(metaclass=abc.ABCMeta):
         self.failures = []
         self.warnings = []
         self.notices = []
+        self.errors = []
         self._checked = False
         self._context_stack = []
 
@@ -27,6 +28,7 @@ class Checker(metaclass=abc.ABCMeta):
         self.fail = functools.partial(self._append_report, self.failures)
         self.warn = functools.partial(self._append_report, self.warnings)
         self.notice = functools.partial(self._append_report, self.notices)
+        self.error = functools.partial(self._append_report, self.errors)
 
     def _append_report(self, append_to, message, context=None, exception=None, exc_info=None):
         # TODO capture calling frame
@@ -39,19 +41,19 @@ class Checker(metaclass=abc.ABCMeta):
         try:
             self.check()
         except Exception as e:  # pragma: no cover
-            msg = "Unhandled exception in 'check' routine"
-            self.fail(msg, exception=e, exc_info=sys.exc_info())
+            checker_name = type(self).__name__
+            msg = "`{}` encountered an unexpected error.".format(checker_name)
+            self.error(msg, exception=e, exc_info=sys.exc_info())
             if debug_active():
                 import pdb
                 pdb.post_mortem()
-            l.exception(msg)
         self._checked = True
 
     def result(self):
         """Return whether checks ran without issues (`True`) or there were failures (`False`)."""
         if not self._checked:
             raise RuntimeError("Check has not been perfomed yet")
-        return not bool(self.failures)
+        return not bool(self.failures or self.errors)
 
     @abc.abstractmethod
     def check(self):

@@ -55,6 +55,39 @@ def test_report_omits_empty_notice_group():
     assert "No notices" not in out.getvalue()
 
 
+def test_report_separates_internal_errors_from_failures():
+    runner = CheckRunner([UnexpectedErrorChecker])
+    runner.run()
+
+    out = StringIO()
+    runner.report(file=out, compact=True)
+    report = out.getvalue()
+
+    assert not runner.result()
+    assert not runner.failures
+    assert len(runner.errors) == 1
+    assert "- The review was incomplete due to an internal error; see below." in report
+    assert "1 internal error:" in report
+    assert "- `UnexpectedErrorChecker` encountered an unexpected error." in report
+    assert "<details>\n<summary>Traceback</summary>" in report
+    assert report.count("Traceback (most recent call last):") == 1
+    assert "ValueError: bad &lt;value&gt;</pre>" in report
+    assert "No failure" not in report
+    assert "No warning" not in report
+
+
+def test_incomplete_report_keeps_warnings_without_empty_failure_group():
+    runner = CheckRunner([WarningThenUnexpectedErrorChecker])
+    runner.run()
+
+    out = StringIO()
+    runner.report(file=out, compact=True)
+    report = out.getvalue()
+
+    assert "1 warning:\n- A warning from a completed part of the check" in report
+    assert "No failure" not in report
+
+
 def test_report_omits_redundant_file_detail():
     report = Report("'Default.sublime-keymap' only contains commented examples.",
                     ("File: Default.sublime-keymap",), None, None)
@@ -85,6 +118,19 @@ def test_run_deduplicates_warnings():
 
     assert runner.warnings == [Report("Duplicate warning", ("File: Main.sublime-menu",),
                                       None, None)]
+
+
+class UnexpectedErrorChecker(Checker):
+
+    def check(self):
+        raise ValueError("bad <value>")
+
+
+class WarningThenUnexpectedErrorChecker(Checker):
+
+    def check(self):
+        self.warn("A warning from a completed part of the check")
+        raise ValueError("bad <value>")
 
 
 class DuplicateWarningChecker(Checker):

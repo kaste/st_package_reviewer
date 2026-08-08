@@ -1,4 +1,5 @@
 from collections import namedtuple
+import html
 import sys
 import traceback
 
@@ -15,7 +16,17 @@ class Report(namedtuple("_Report", "message context exception exc_info")):
         for elem in self._report_details():
             print("{}{}".format(self._indent, elem), file=file)
         if self.exc_info:
-            traceback.print_exception(*self.exc_info, file=file)
+            self._report_traceback(file)
+
+    def _report_traceback(self, file):
+        traceback_text = "".join(traceback.format_exception(*self.exc_info)).rstrip()
+        print(file=file)
+        print("<details>", file=file)
+        print("<summary>Traceback</summary>", file=file)
+        print(file=file)
+        print("<pre>{}</pre>".format(html.escape(traceback_text)), file=file)
+        print("</details>", file=file)
+        print(file=file)
 
     @property
     def details(self):
