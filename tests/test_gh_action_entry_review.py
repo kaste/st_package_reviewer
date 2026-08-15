@@ -449,6 +449,18 @@ def test_combined_review_keeps_package_notes_first():
     )
 
 
+def test_combined_review_labels_single_entry_warning():
+    review = EntryReview()
+    review.warnings.append("Entry warning")
+
+    assert combine_entry_and_package_review(review, "No failures.\n") == (
+        "No failures.\n\n"
+        "About the entry here:\n\n"
+        "1 warning:\n"
+        "- Entry warning\n"
+    )
+
+
 def test_combined_review_groups_entry_findings_when_severities_mix():
     review = EntryReview()
     review.failures.append("Entry failure")
@@ -458,12 +470,11 @@ def test_combined_review_groups_entry_findings_when_severities_mix():
     assert combine_entry_and_package_review(review, "No failures.\n") == (
         "No failures.\n\n"
         "About the entry here:\n\n"
+        "- Entry notice\n\n"
         "1 failure:\n"
         "- Entry failure\n\n"
         "1 warning:\n"
-        "- Entry warning\n\n"
-        "1 notice:\n"
-        "- Entry notice\n"
+        "- Entry warning\n"
     )
 
 

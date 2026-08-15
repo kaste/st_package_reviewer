@@ -341,19 +341,26 @@ def format_source_label(label: str) -> str:
 
 def format_entry_review(entry_review: EntryReview) -> str:
     lines = ["About the entry here:", ""]
-    groups = [
+    if entry_review.notices:
+        lines.extend(f"- {message}" for message in entry_review.notices)
+
+    report_groups = [
         ("failures", entry_review.failures),
         ("warnings", entry_review.warnings),
-        ("notices", entry_review.notices),
     ]
-    populated_groups = [(title, messages) for title, messages in groups if messages]
-    show_group_headers = len(populated_groups) > 1 or bool(entry_review.failures)
-
-    for title, messages in populated_groups:
-        if show_group_headers:
-            lines.append(f"{len(messages)} {singular_or_plural(len(messages), title)}:")
-        lines.extend(f"- {message}" for message in messages)
+    populated_groups = [
+        (title, messages)
+        for title, messages in report_groups
+        if messages
+    ]
+    if entry_review.notices and populated_groups:
         lines.append("")
+
+    for index, (title, messages) in enumerate(populated_groups):
+        if index:
+            lines.append("")
+        lines.append(f"{len(messages)} {singular_or_plural(len(messages), title)}:")
+        lines.extend(f"- {message}" for message in messages)
     return "\n".join(lines).rstrip()
 
 
