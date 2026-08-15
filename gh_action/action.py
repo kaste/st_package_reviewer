@@ -112,11 +112,31 @@ def main(argv: list[str] | None = None) -> None:
         head_reg = tmpdir / "head_registry.json"
 
         with console.group("Generating base registry…"):
-            if not generate_registry(crawler_repo, pr_meta.base_url, base_reg):
+            base_generation = generate_registry(
+                crawler_repo,
+                pr_meta.base_url,
+                base_reg,
+            )
+            if not base_generation.succeeded:
+                append_registry_generation_failure(
+                    review_md,
+                    "base",
+                    base_generation,
+                )
                 raise SystemExit(1)
 
         with console.group("Generating target registry…"):
-            if not generate_registry(crawler_repo, pr_meta.head_url, head_reg):
+            target_generation = generate_registry(
+                crawler_repo,
+                pr_meta.head_url,
+                head_reg,
+            )
+            if not target_generation.succeeded:
+                append_registry_generation_failure(
+                    review_md,
+                    "target",
+                    target_generation,
+                )
                 raise SystemExit(1)
 
         try:
@@ -376,6 +396,16 @@ class PrMeta:
         self.head_url = head_url
 
 
+class RegistryGenerationResult:
+    def __init__(self, returncode: int, fetch_errors: list[str]) -> None:
+        self.returncode = returncode
+        self.fetch_errors = fetch_errors
+
+    @property
+    def succeeded(self) -> bool:
+        return self.returncode == 0 and not self.fetch_errors
+
+
 class Console:
     @contextmanager
     def group(self, title: str, *, stderr: bool = True):
@@ -390,6 +420,29 @@ class Console:
 
     def write_stdout(self, message: str) -> None:
         print(message, file=sys.stdout)
+
+
+def append_registry_generation_failure(
+    review_md: Path,
+    registry_name: str,
+    result: RegistryGenerationResult,
+) -> None:
+    with review_md.open("a", encoding="utf-8") as f:
+        f.write("## Result\n\n")
+        f.write(
+            "Could not review this PR because the "
+            f"{registry_name} registry could not be generated.\n\n"
+        )
+        if result.fetch_errors:
+            f.write("The registry generator reported:\n\n")
+            for error in result.fetch_errors:
+                f.write(f"- {error}\n")
+            f.write("\nFix the registry source and rerun the review.\n\n")
+        else:
+            f.write(
+                "The registry generator exited with status "
+                f"`{result.returncode}`. See the action logs for details.\n\n"
+            )
 
 
 def append_package_review(
@@ -1038,7 +1091,11 @@ def load_registry_packages(registry_file: Path) -> dict[str, dict[str, object]]:
     return extract_registry_map(data)
 
 
-def generate_registry(crawler_repo: Path, registry_url: str, output: Path) -> bool:
+def generate_registry(
+    crawler_repo: Path,
+    registry_url: str,
+    output: Path,
+) -> RegistryGenerationResult:
     proc = run(
         "uv",
         "run",
@@ -1049,9 +1106,34 @@ def generate_registry(crawler_repo: Path, registry_url: str, output: Path) -> bo
         "-o",
         str(output),
         cwd=crawler_repo,
+        capture_output=True,
         check=False,
     )
-    return proc.returncode == 0
+    if proc.stdout:
+        sys.stdout.write(proc.stdout)
+    if proc.stderr:
+        sys.stderr.write(proc.stderr)
+
+    fetch_errors = registry_generation_fetch_errors(proc.stderr)
+    if fetch_errors:
+        print(
+            "::error ::Registry generation reported a source fetch failure.",
+            file=sys.stderr,
+        )
+    elif proc.returncode != 0:
+        print(
+            f"::error ::Registry generation exited with status {proc.returncode}.",
+            file=sys.stderr,
+        )
+    return RegistryGenerationResult(proc.returncode, fetch_errors)
+
+
+def registry_generation_fetch_errors(stderr: str | None) -> list[str]:
+    return [
+        line
+        for line in (stderr or "").splitlines()
+        if line.startswith("Error fetching ")
+    ]
 
 
 def unzip_release(

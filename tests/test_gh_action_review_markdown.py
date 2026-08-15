@@ -1,6 +1,8 @@
 from gh_action.action import (
+    RegistryGenerationResult,
     append_package_review,
     append_package_review_failure,
+    append_registry_generation_failure,
     init_review_md,
     no_release_failure_details,
 )
@@ -12,6 +14,33 @@ def test_init_review_md_starts_with_no_title(tmp_path):
     init_review_md(review)
 
     assert review.read_text(encoding="utf-8") == ""
+
+
+def test_append_registry_generation_failure(tmp_path):
+    review = tmp_path / "review.md"
+    review.write_text("", encoding="utf-8")
+
+    append_registry_generation_failure(
+        review,
+        "target",
+        RegistryGenerationResult(
+            0,
+            [
+                "Error fetching https://example.com/repository.json: "
+                "Expecting ',' delimiter: line 12 column 3"
+            ],
+        ),
+    )
+
+    assert review.read_text(encoding="utf-8") == (
+        "## Result\n\n"
+        "Could not review this PR because the target registry could not be "
+        "generated.\n\n"
+        "The registry generator reported:\n\n"
+        "- Error fetching https://example.com/repository.json: Expecting ',' "
+        "delimiter: line 12 column 3\n\n"
+        "Fix the registry source and rerun the review.\n\n"
+    )
 
 
 def test_append_package_review_failure(tmp_path):
