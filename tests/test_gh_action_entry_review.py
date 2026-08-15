@@ -5,6 +5,8 @@ from gh_action._entry_checker import (
     EntryReview,
     PackageEntrySource,
     extract_package_entries,
+    format_line_ranges,
+    format_line_reference,
     load_package_entry_source,
     review_package_entry,
 )
@@ -181,7 +183,7 @@ def test_entry_review_checks_only_named_source_entry():
         '\t\t},\n'
         '\t\t{\n'
         '    "name": "Zulu",\n'
-        '\t\t\t"details": "https://github.com/example/Zulu"\n'
+        '    "details": "https://github.com/example/Zulu"\n'
         '\t\t}\n'
         '\t]\n'
         '}\n'
@@ -202,9 +204,18 @@ def test_entry_review_checks_only_named_source_entry():
     )
 
     assert review.failures == [
-        "`Zulu` has invalid indentation on line 9: use tabs for indentation, "
+        "`Zulu` has invalid indentation on lines 9-10: use tabs for indentation, "
         "not spaces"
     ]
+
+
+def test_format_line_ranges():
+    assert format_line_reference([803]) == "line 803"
+    assert format_line_reference([803, 804]) == "lines 803-804"
+    assert format_line_ranges([803, 804]) == "803-804"
+    assert format_line_ranges([803, 805]) == "803 and 805"
+    assert format_line_ranges([803, 805, 806, 807, 808]) == "803 and 805-808"
+    assert format_line_ranges([803, 805, 808]) == "803, 805 and 808"
 
 
 def test_entry_review_reports_changed_package_sorting_against_neighbors():

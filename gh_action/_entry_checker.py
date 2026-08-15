@@ -310,15 +310,50 @@ def check_source_entry(
     names = [entry.name for entry in entries]
     for entry in matching_entries:
         indentation_issues = source_entry_indentation_issues(entry)
-        for line_number, message in indentation_issues:
+        for line_reference, message in group_line_issues(indentation_issues):
             review.failures.append(
-                f"`{package_name}` has invalid indentation on line {line_number}: "
+                f"`{package_name}` has invalid indentation on {line_reference}: "
                 f"{message}"
             )
 
         sorting_issue = source_entry_sorting_issue(names, entry.index)
         if sorting_issue:
             review.failures.append(f"`{package_name}` is not sorted: {sorting_issue}")
+
+
+def group_line_issues(
+    issues: list[tuple[int, str]],
+) -> list[tuple[str, str]]:
+    lines_by_message: dict[str, list[int]] = {}
+    for line_number, message in issues:
+        lines_by_message.setdefault(message, []).append(line_number)
+
+    return [
+        (format_line_reference(line_numbers), message)
+        for message, line_numbers in lines_by_message.items()
+    ]
+
+
+def format_line_reference(line_numbers: list[int]) -> str:
+    line_word = "line" if len(set(line_numbers)) == 1 else "lines"
+    return f"{line_word} {format_line_ranges(line_numbers)}"
+
+
+def format_line_ranges(line_numbers: list[int]) -> str:
+    numbers = sorted(set(line_numbers))
+    ranges = []
+    start = end = numbers[0]
+    for number in numbers[1:]:
+        if number == end + 1:
+            end = number
+            continue
+        ranges.append(str(start) if start == end else f"{start}-{end}")
+        start = end = number
+    ranges.append(str(start) if start == end else f"{start}-{end}")
+
+    if len(ranges) == 1:
+        return ranges[0]
+    return f"{', '.join(ranges[:-1])} and {ranges[-1]}"
 
 
 def package_source_bucket_issue(
