@@ -252,10 +252,9 @@ def check_redundant_details_fields(
     if source_entry is not None:
         name = source_entry.get("name")
         if isinstance(name, str) and name == repo.repo:
-            review.warnings.append(
-                f"`name` is set to `{name}`, which can be derived from "
-                "`details`. Omit it unless the display name differs from the "
-                "repository name."
+            review.notices.append(
+                f"`name` is set to `{name}`, which can also be derived from "
+                "`details`."
             )
 
     issues = package_definition.get("issues")

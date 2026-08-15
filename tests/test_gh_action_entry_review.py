@@ -15,7 +15,7 @@ class DummyConsole:
         pass
 
 
-def test_entry_review_warns_about_redundant_details_fields():
+def test_entry_review_reports_derived_details_fields():
     package_definition = {
         "name": "KeyBindingReport",
         "details": "https://github.com/vwheeler63/KeyBindingReport",
@@ -30,13 +30,13 @@ def test_entry_review_warns_about_redundant_details_fields():
     )
 
     assert review.failures == []
-    assert review.notices == []
+    assert review.notices == [
+        "`name` is set to `KeyBindingReport`, which can also be derived from "
+        "`details`."
+    ]
     assert review.warnings == [
         "`author` is set to `vwheeler63`, which can be derived from "
         "`details`. Omit it unless it differs from the repository owner.",
-        "`name` is set to `KeyBindingReport`, which can be derived from "
-        "`details`. Omit it unless the display name differs from the "
-        "repository name.",
         "`issues` is set to the standard issue tracker URL "
         "`https://github.com/vwheeler63/KeyBindingReport/issues`, which can "
         "be derived from `details`.",
@@ -444,8 +444,8 @@ def test_combined_review_keeps_package_notes_first():
         "- Broken package file\n\n"
         "No warnings\n\n"
         "About the entry here:\n\n"
-        "- `name` is set to `Example`, which can be derived from `details`. "
-        "Omit it unless the display name differs from the repository name.\n"
+        "- `name` is set to `Example`, which can also be derived from "
+        "`details`.\n"
     )
 
 
