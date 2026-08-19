@@ -104,6 +104,23 @@ singular form.
 
 
 
+### Root package initializer contains code
+
+```
+The root-level '__init__.py' must be empty or contain only comments. Package Control discards this file during installation to avoid Sublime Text reload errors, so it cannot be used as the entrypoint for your package. You may also want to remove it if it is not needed by your development tooling.
+```
+
+A root `__init__.py` may be kept as an empty or comment-only tooling marker. It
+is not treated as an installed plugin or resource. Initializers in subpackages
+are unaffected.
+
+**Severity:** Failure
+**Source:** `st_package_reviewer/check/file/check_redundant_files.py` —
+`CheckRootInitContents.check`
+
+
+
+
 ### Generated Package Control metadata is included
 
 ```

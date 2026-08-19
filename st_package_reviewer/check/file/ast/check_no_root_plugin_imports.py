@@ -13,8 +13,7 @@ class CheckNoRootPluginImports(AstChecker):
     def check(self):
         self._root_plugin_modules = {
             path.stem
-            for path in self.glob("*.py")
-            if path.name != "__init__.py"
+            for path in self.root_plugin_files()
         }
         if not self._root_plugin_modules:
             return
@@ -22,7 +21,7 @@ class CheckNoRootPluginImports(AstChecker):
         super().check()
 
     def visit_all_pyfiles(self):
-        for path in self.glob("**/*.py"):
+        for path in self.installed_python_files():
             self._current_module_parts = self._module_parts(path)
             with self.file_context(path):
                 root = self._get_ast(path)

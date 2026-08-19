@@ -27,7 +27,7 @@ SUBLIME_VARIABLE_RE = re.compile(r"\$(packages|platform)\b")
 class CheckPluginsInRoot(FileChecker):
 
     def check(self):
-        if self.glob("*.py"):
+        if self.root_plugin_files():
             return
 
         python_files_in_package = self.glob("*/**/*.py")
@@ -47,7 +47,6 @@ class CheckHasResourceFiles(FileChecker):
         # as they serve no purpose without another file using them
         # (e.g. a plugin).
         resource_file_globs = {
-            "*.py",
             "**/*.sublime-build",
             "**/*.sublime-color-scheme",
             # "**/*.hidden-color-scheme",
@@ -71,7 +70,10 @@ class CheckHasResourceFiles(FileChecker):
             "**/*.dic",
         }
 
-        has_resource_files = any(self.glob(ptrn) for ptrn in resource_file_globs)
+        has_resource_files = (
+            bool(self.root_plugin_files())
+            or any(self.glob(ptrn) for ptrn in resource_file_globs)
+        )
         if not has_resource_files:
             self.fail("The package does not define any file that interfaces with Sublime Text")
 

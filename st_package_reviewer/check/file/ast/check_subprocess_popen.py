@@ -19,7 +19,7 @@ class CheckSubprocessPopenStartupinfo(AstChecker):
         super().check()
 
     def visit_all_pyfiles(self):
-        for path in self.glob("**/*.py"):
+        for path in self.installed_python_files():
             with self.file_context(path):
                 root = self._get_ast(path)
                 if root:

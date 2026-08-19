@@ -9,8 +9,13 @@ import pytest
 from st_package_reviewer.runner import CheckRunner
 from st_package_reviewer.check import file as file_c
 from st_package_reviewer.check.file.ast.check_initialized_api import CheckInitializedApiUsage
+from st_package_reviewer.check.file.check_redundant_files import CheckRootInitContents
 from st_package_reviewer.check.file.check_resource_file_validity import CheckJsoncFiles
-from st_package_reviewer.check.file.check_resource_files import CheckMainMenuStructure
+from st_package_reviewer.check.file.check_resource_files import (
+    CheckHasResourceFiles,
+    CheckMainMenuStructure,
+    CheckPluginsInRoot,
+)
 from st_package_reviewer.check.file.ast.sublime_api_classes import (
     SUBLIME_API_CLASS_BUILDS,
 )
@@ -225,6 +230,80 @@ def test_commented_commands_referenced_from_main_menu_are_silent(tmp_path):
     assert not checker.failures
     assert not checker.warnings
     assert not checker.notices
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        b"",
+        b"\n  \n# Kept for tooling.\n",
+        "# Kept for tooling: \N{SNOWMAN}\n".encode(),
+        b"# -*- coding: latin-1 -*-\n# \xe4\n",
+    ],
+)
+def test_root_init_allows_empty_or_comment_only_files(tmp_path, contents):
+    (tmp_path / "__init__.py").write_bytes(contents)
+
+    checker = CheckRootInitContents(tmp_path)
+    checker.perform_check()
+
+    assert not checker.failures
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        b"VALUE = 1\n",
+        b'"""Package docstring."""\n',
+        b"pass\n",
+        b"\\\n",
+    ],
+)
+def test_root_init_rejects_python_code(tmp_path, contents):
+    (tmp_path / "__init__.py").write_bytes(contents)
+
+    checker = CheckRootInitContents(tmp_path)
+    checker.perform_check()
+
+    assert [failure.message for failure in checker.failures] == [
+        "The root-level '__init__.py' must be empty or contain only comments. "
+        "Package Control discards this file during installation to avoid "
+        "Sublime Text reload errors, so it cannot be used as the entrypoint "
+        "for your package. You may also want to remove it if it is not needed "
+        "by your development tooling."
+    ]
+
+
+def test_root_init_does_not_count_as_an_installed_plugin(tmp_path):
+    (tmp_path / "__init__.py").write_text("# Kept for tooling.\n", encoding="utf-8")
+    module_path = tmp_path / "helper" / "module.py"
+    module_path.parent.mkdir()
+    module_path.write_text("VALUE = 1\n", encoding="utf-8")
+
+    plugin_checker = CheckPluginsInRoot(tmp_path)
+    plugin_checker.perform_check()
+    resource_checker = CheckHasResourceFiles(tmp_path)
+    resource_checker.perform_check()
+
+    assert [failure.message for failure in plugin_checker.failures] == [
+        "The package contains 1 Python file(s), but none of them are in the "
+        "package root and no build system is specified"
+    ]
+    assert [failure.message for failure in resource_checker.failures] == [
+        "The package does not define any file that interfaces with Sublime Text"
+    ]
+
+
+def test_ast_checkers_ignore_root_init(tmp_path):
+    (tmp_path / "__init__.py").write_text(
+        "import sublime\nsublime.load_settings('Example.sublime-settings')\n",
+        encoding="utf-8",
+    )
+
+    checker = CheckInitializedApiUsage(tmp_path, st_build=4169)
+    checker.perform_check()
+
+    assert not checker.failures
 
 
 def test_initialized_api_metadata_records_completion_item_build():

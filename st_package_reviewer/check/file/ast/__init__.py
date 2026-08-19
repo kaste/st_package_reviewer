@@ -37,8 +37,7 @@ class AstChecker(FileChecker, ast.NodeVisitor):
         self.visit_all_pyfiles()
 
     def visit_all_pyfiles(self):
-        pyfiles = self.glob("**/*.py")
-        for path in pyfiles:
+        for path in self.installed_python_files():
             with self.file_context(path):
                 root = self._get_ast(path)
                 if root:

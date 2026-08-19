@@ -8,8 +8,11 @@ class CheckNoSublimePackage(FileChecker):
         if not exists:
             return
 
-        potential_invokers = self.globs("*.py", "**/*.sublime-build")
-        if next(potential_invokers, None) is None:
+        has_potential_invoker = (
+            bool(self.root_plugin_files())
+            or bool(self.glob("**/*.sublime-build"))
+        )
+        if not has_potential_invoker:
             self.warn("'.no-sublime-package' is defined, "
                       "but no other resource file can make use of it")
         else:

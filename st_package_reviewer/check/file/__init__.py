@@ -49,6 +49,13 @@ class FileChecker(Checker):
     def rel_path(self, path):
         return path.relative_to(self.base_path)
 
+    def installed_python_files(self):
+        root_init = self.sub_path("__init__.py")
+        return [path for path in self.glob("**/*.py") if path != root_init]
+
+    def root_plugin_files(self):
+        return [path for path in self.glob("*.py") if path.name != "__init__.py"]
+
     def file_context(self, path):
         try:
             path = self.rel_path(path)
