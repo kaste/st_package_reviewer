@@ -535,12 +535,32 @@ def source_entry_indentation_issues(entry: SourceEntry) -> list[tuple[int, str]]
 
 def source_entry_sorting_issue(names: list[str], index: int) -> str:
     name = names[index]
-    key = name.casefold()
-    if index > 0 and names[index - 1].casefold() > key:
-        return f"move it before `{names[index - 1]}`."
-    if index + 1 < len(names) and key > names[index + 1].casefold():
-        return f"move it after `{names[index + 1]}`."
-    return ""
+    key = name.lower()
+    names_before = names[:index]
+    names_after = names[index + 1:]
+    if (
+        all(other.lower() <= key for other in names_before)
+        and all(key <= other.lower() for other in names_after)
+    ):
+        return ""
+
+    ordered_others = sorted(names_before + names_after, key=str.lower)
+    insertion_index = next(
+        (
+            other_index
+            for other_index, other in enumerate(ordered_others)
+            if key < other.lower()
+        ),
+        len(ordered_others),
+    )
+    if insertion_index == 0:
+        return f"move it before `{ordered_others[0]}`."
+    if insertion_index == len(ordered_others):
+        return f"move it after `{ordered_others[-1]}`."
+    return (
+        f"move it between `{ordered_others[insertion_index - 1]}` and "
+        f"`{ordered_others[insertion_index]}`."
+    )
 
 
 def find_json_array_for_key(source: str, key: str) -> int | None:

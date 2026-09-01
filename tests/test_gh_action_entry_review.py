@@ -246,6 +246,42 @@ def test_entry_review_reports_changed_package_sorting_against_neighbors():
     ]
 
 
+def test_entry_review_reports_exact_sorting_position():
+    names = [
+        "Github Notifications",
+        "GithubPullRequest",
+        "Github Search",
+        "GitHub Theme",
+        "GithubEmoji",
+        "GitHubinator",
+        "GitHubIssue",
+        "GitHubTools",
+    ]
+
+    review = review_package_entry(
+        "GithubPullRequest",
+        {"details": "https://github.com/example/GithubPullRequest"},
+        entry_source_for_names(names),
+    )
+
+    assert review.failures == [
+        "`GithubPullRequest` is not sorted: move it between `GitHubIssue` and "
+        "`GitHubTools`."
+    ]
+
+
+def test_entry_review_sorting_matches_schema_lowercase_key():
+    review = review_package_entry(
+        "Straße",
+        {"details": "https://github.com/example/Strasse"},
+        entry_source_for_names(["Straße", "Strasz"]),
+    )
+
+    assert review.failures == [
+        "`Straße` is not sorted: move it after `Strasz`."
+    ]
+
+
 def test_entry_review_uses_source_entry_for_redundant_field_checks():
     source = (
         '{\n'
@@ -491,6 +527,24 @@ def test_combined_review_groups_entry_findings_when_severities_mix():
 
 def entry_source_for(package_definition):
     return PackageEntrySource(source_for(package_definition))
+
+
+def entry_source_for_names(names):
+    return PackageEntrySource(
+        json.dumps(
+            {
+                "schema_version": "3.0.0",
+                "packages": [
+                    {
+                        "name": name,
+                        "details": f"https://github.com/example/{name}",
+                    }
+                    for name in names
+                ],
+            },
+            indent="\t",
+        )
+    )
 
 
 def source_for(package_definition):
