@@ -1,0 +1,18 @@
+- A process is started with subprocess in a Windows-supported package without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows.
+    File: plugin.py
+    Line: 5, Column: 1
+- A process is started with subprocess in a Windows-supported package without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows.
+    File: plugin.py
+    Line: 6, Column: 1
+- A process is started with subprocess in a Windows-supported package without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows.
+    File: plugin.py
+    Line: 7, Column: 1
+- A process is started with subprocess in a Windows-supported package without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows.
+    File: plugin.py
+    Line: 8, Column: 1
+- A process is started with subprocess in a Windows-supported package without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows.
+    File: plugin.py
+    Line: 9, Column: 1
+- A process is started with subprocess in a Windows-supported package without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows.
+    File: plugin.py
+    Line: 10, Column: 1

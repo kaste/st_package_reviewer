@@ -4,12 +4,21 @@ from ....platforms import platforms_include
 from . import AstChecker
 
 
+_PROCESS_FUNCTIONS = {
+    "Popen",
+    "call",
+    "check_call",
+    "check_output",
+    "run",
+}
+
+
 class CheckSubprocessPopenStartupinfo(AstChecker):
-    """Check subprocess.Popen calls that can flash console windows on Windows."""
+    """Check subprocess launches that can flash console windows on Windows."""
 
     WARNING = (
-        "subprocess.Popen is used in a Windows-supported package without "
-        "hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/"
+        "A process is started with subprocess in a Windows-supported package "
+        "without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/"
         "SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows."
     )
 
@@ -39,14 +48,14 @@ class CheckSubprocessPopenStartupinfo(AstChecker):
                     self.visit(root)
 
     def visit_Call(self, node):
-        if self._is_popen_call(node) and not self._has_hidden_window_handling(node):
+        if self._is_process_call(node) and not self._has_hidden_window_handling(node):
             with self.node_context(node):
                 self.warn(self.WARNING)
         self.generic_visit(node)
 
     def _collect_subprocess_imports(self, root):
         self._subprocess_module_names = {"subprocess"}
-        self._popen_names = set()
+        self._process_function_names = set()
         self._create_no_window_names = set()
         self._startf_use_show_window_names = set()
 
@@ -67,28 +76,28 @@ class CheckSubprocessPopenStartupinfo(AstChecker):
 
         for alias in node.names:
             if alias.name == "*":
-                self._popen_names.add("Popen")
+                self._process_function_names.update(_PROCESS_FUNCTIONS)
                 self._create_no_window_names.add("CREATE_NO_WINDOW")
                 self._startf_use_show_window_names.add("STARTF_USESHOWWINDOW")
                 continue
 
             name = alias.asname or alias.name
-            if alias.name == "Popen":
-                self._popen_names.add(name)
+            if alias.name in _PROCESS_FUNCTIONS:
+                self._process_function_names.add(name)
             elif alias.name == "CREATE_NO_WINDOW":
                 self._create_no_window_names.add(name)
             elif alias.name == "STARTF_USESHOWWINDOW":
                 self._startf_use_show_window_names.add(name)
 
-    def _is_popen_call(self, node):
+    def _is_process_call(self, node):
         func = node.func
         if isinstance(func, ast.Attribute):
             return (
-                func.attr == "Popen"
+                func.attr in _PROCESS_FUNCTIONS
                 and isinstance(func.value, ast.Name)
                 and func.value.id in self._subprocess_module_names
             )
-        return isinstance(func, ast.Name) and func.id in self._popen_names
+        return isinstance(func, ast.Name) and func.id in self._process_function_names
 
     def _has_hidden_window_handling(self, node):
         has_kwargs_expansion = False

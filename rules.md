@@ -1085,10 +1085,10 @@ Consider replacing os.system with subprocess.check_output, or use sublime's Defa
 
 
 
-### `subprocess.Popen` may flash a console window
+### A subprocess call may flash a console window
 
 ```
-subprocess.Popen is used in a Windows-supported package without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows.
+A process is started with subprocess in a Windows-supported package without hidden-window handling. Pass startupinfo with STARTF_USESHOWWINDOW/SW_HIDE, or use CREATE_NO_WINDOW, to avoid flashing console windows.
 ```
 
 **Severity:** Warning
