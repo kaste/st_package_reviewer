@@ -40,11 +40,20 @@ class CheckCommandNames(AstChecker):
             return
 
         with self.node_context(node):
-            command_name = self._class_name_to_command_name(node.name)
-            if command_name is None:
-                self.warn("Unable to infer command name from class {!r}".format(node.name))
-                return
-            self.command_names.append(command_name)
+            name_method = next((member for member in node.body
+                                if isinstance(member, ast.FunctionDef)
+                                and member.name == "name"), None)
+            if name_method is not None:
+                # A name() override determines the registered name, not the class.
+                # Ignore names we cannot determine statically rather than guessing.
+                command_name = self._literal_command_name(name_method)
+            else:
+                command_name = self._class_name_to_command_name(node.name)
+                if command_name is None:
+                    self.warn("Unable to infer command name from class {!r}".format(node.name))
+
+            if command_name:
+                self.command_names.append(command_name)
 
     def _check_prefix_consistency(self):
         if len(self.command_names) < 2:
@@ -61,6 +70,18 @@ class CheckCommandNames(AstChecker):
                       " Consider using one single prefix"
                       " so as to not clutter the command namespace."
                       .format(", ".join(sorted(prefixes))))
+
+    @staticmethod
+    def _literal_command_name(method):
+        body = method.body
+        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
+                and isinstance(body[0].value.value, str):
+            body = body[1:]
+        if len(body) == 1 and isinstance(body[0], ast.Return) \
+                and isinstance(body[0].value, ast.Constant) \
+                and isinstance(body[0].value.value, str):
+            return body[0].value.value
+        return None
 
     @staticmethod
     def _class_name_to_command_name(class_name):
