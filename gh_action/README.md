@@ -10,6 +10,7 @@ This composite action diffs a Package Control channel registry between a PR’s 
 - `thecrawl` (optional): Path to a local `thecrawl` repo, or a git URL to clone a fork/branch/commit. Default: `https://github.com/packagecontrol/thecrawl`
 - `token` (optional): GitHub token; if not set, the workflow token is used which is usually what you want.
 - `ack-reaction` (optional): Reaction to add immediately to a triggering `issue_comment` during `phase=review`. Default: `eyes`; set to an empty string to disable. Valid GitHub reactions include `+1`, `eyes`, `rocket`, and `hooray`.
+- `hide-outdated` (optional): During `phase=report`, hide earlier review comments on the PR as outdated after the new comment is posted. Default: `true`; set to `false` to disable.
 
 You can pin a ref with `@ref` for HTTPS URLs, e.g.:
   - `https://github.com/packagecontrol/thecrawl.git@feature-branch`
@@ -71,6 +72,7 @@ jobs:
 This second workflow:
 - Downloads the `review-md` artifact produced by the first workflow (containing `review.md` and `review_pr_number.txt`).
 - Posts a new PR comment with the contents of `review.md`.
+- Hides earlier review comments from the same account as outdated (disable with `hide-outdated: false`). Failures here only log a warning.
 
 For manually requested runs from `issue_comment`, the `review` phase also tries to add the configured `ack-reaction` to the triggering comment before doing expensive review work. The acknowledgement step uses `continue-on-error`, so token/permission failures are visible in the step log but do not block the review.
 

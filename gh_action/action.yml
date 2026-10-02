@@ -26,6 +26,10 @@ inputs:
       set empty to disable
     default: eyes
     required: false
+  hide-outdated:
+    description: Hide earlier review comments as outdated after posting a new one during phase=report.
+    default: 'true'
+    required: false
 runs:
   using: composite
   steps:
@@ -130,6 +134,7 @@ runs:
       env:
         REVIEW_MD_PATH: _handoff/review.md
         REVIEW_PR_NUMBER_PATH: _handoff/review_pr_number.txt
+        HIDE_OUTDATED: ${{ inputs['hide-outdated'] }}
       with:
         script: |
           const fs = require('fs');
@@ -144,15 +149,62 @@ runs:
             throw new Error("Missing/invalid PR number in review_pr_number.txt");
           }
 
-          const marker = `<!-- st_package_reviewer run_id=${{ github.event.workflow_run.id }} -->`;
+          const markerPrefix = '<!-- st_package_reviewer run_id=';
+          const marker = `${markerPrefix}${{ github.event.workflow_run.id }} -->`;
           const commentBody = `${marker}\n\n${body}`;
 
           const { owner, repo } = context.repo;
           const issue_number = prNumber;
 
-          await github.rest.issues.createComment({
+          const { data: created } = await github.rest.issues.createComment({
             owner,
             repo,
             issue_number,
             body: commentBody,
           });
+
+          if (process.env.HIDE_OUTDATED === 'true') {
+            // Hide only earlier review comments written by the same account.
+            // Comparing ids keeps a slower concurrent run from hiding a newer review.
+            try {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              });
+              const candidateIds = comments
+                .filter(c =>
+                  c.id < created.id &&
+                  c.user?.login === created.user?.login &&
+                  (c.body || '').startsWith(markerPrefix)
+                )
+                .map(c => c.node_id);
+
+              // The REST API does not expose the minimized state; skip already hidden comments.
+              const outdated = [];
+              for (let i = 0; i < candidateIds.length; i += 100) {
+                const { nodes } = await github.graphql(
+                  `query($ids: [ID!]!) {
+                    nodes(ids: $ids) { ... on IssueComment { id isMinimized } }
+                  }`,
+                  { ids: candidateIds.slice(i, i + 100) },
+                );
+                outdated.push(...nodes.filter(n => n && !n.isMinimized).map(n => n.id));
+              }
+
+              for (const id of outdated) {
+                await github.graphql(
+                  `mutation($id: ID!) {
+                    minimizeComment(input: { subjectId: $id, classifier: OUTDATED }) {
+                      clientMutationId
+                    }
+                  }`,
+                  { id },
+                );
+              }
+              core.info(`Hid ${outdated.length} outdated review comment(s).`);
+            } catch (err) {
+              core.warning(`Could not hide outdated review comments: ${err.message}`);
+            }
+          }
