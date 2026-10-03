@@ -149,8 +149,8 @@ runs:
             throw new Error("Missing/invalid PR number in review_pr_number.txt");
           }
 
-          const markerPrefix = '<!-- st_package_reviewer run_id=';
-          const marker = `${markerPrefix}${{ github.event.workflow_run.id }} -->`;
+          const runId = Number('${{ github.event.workflow_run.id }}');
+          const marker = `<!-- st_package_reviewer run_id=${runId} -->`;
           const commentBody = `${marker}\n\n${body}`;
 
           const { owner, repo } = context.repo;
@@ -165,7 +165,8 @@ runs:
 
           if (process.env.HIDE_OUTDATED === 'true') {
             // Hide only earlier review comments written by the same account.
-            // Comparing ids keeps a slower concurrent run from hiding a newer review.
+            // Compare run IDs too: an older workflow may post its comment later.
+            // Allow equal run IDs so reruns can replace their earlier comments.
             try {
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner,
@@ -174,11 +175,12 @@ runs:
                 per_page: 100,
               });
               const candidateIds = comments
-                .filter(c =>
-                  c.id < created.id &&
-                  c.user?.login === created.user?.login &&
-                  (c.body || '').startsWith(markerPrefix)
-                )
+                .filter(c => {
+                  const match = (c.body || '').match(/^<!-- st_package_reviewer run_id=(\d+) -->/);
+                  return c.id < created.id &&
+                    c.user?.login === created.user?.login &&
+                    match && Number(match[1]) <= runId;
+                })
                 .map(c => c.node_id);
 
               // The REST API does not expose the minimized state; skip already hidden comments.
