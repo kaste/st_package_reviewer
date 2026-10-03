@@ -194,6 +194,44 @@ def test_reviewer_integration(package_path, check_runner):
         assert not check_runner.result()
 
 
+@pytest.mark.parametrize("relative_path", [
+    "Example.sublime-file-icons",
+    "icons/Example.sublime-file-icons",
+])
+def test_file_icons_count_as_resources_and_allow_jsonc(tmp_path, relative_path):
+    icons_path = tmp_path / relative_path
+    icons_path.parent.mkdir(parents=True, exist_ok=True)
+    icons_path.write_text(
+        '{\n// File icon mappings\n"icons": {"example.txt": "file_type_text",},\n}\n',
+        encoding="utf-8",
+    )
+
+    check_runner = CheckRunner([CheckHasResourceFiles, CheckJsoncFiles])
+    check_runner.run(tmp_path)
+
+    assert not check_runner.failures
+    assert not check_runner.warnings
+    assert not check_runner.notices
+
+
+@pytest.mark.parametrize("relative_path", [
+    "Example.sublime-file-icons",
+    "icons/Example.sublime-file-icons",
+])
+def test_file_icons_invalid_jsonc_is_reported(tmp_path, relative_path):
+    icons_path = tmp_path / relative_path
+    icons_path.parent.mkdir(parents=True, exist_ok=True)
+    icons_path.write_text('{"icons":', encoding="utf-8")
+
+    checker = CheckJsoncFiles(tmp_path)
+    checker.perform_check()
+
+    assert len(checker.failures) == 1
+    failure = checker.failures[0]
+    assert failure.message == "Invalid JSON (with comments)"
+    assert failure.context == ("File: {}".format(relative_path),)
+
+
 def test_nested_main_menu_structure_warning_includes_relative_path(tmp_path):
     menu_path = tmp_path / "resources" / "Main.sublime-menu"
     menu_path.parent.mkdir()

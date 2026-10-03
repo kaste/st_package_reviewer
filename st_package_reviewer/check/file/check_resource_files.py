@@ -52,6 +52,7 @@ class CheckHasResourceFiles(FileChecker):
             # "**/*.hidden-color-scheme",
             "**/*.sublime-commands",
             "**/*.sublime-completions",
+            "**/*.sublime-file-icons",
             "**/*.sublime-keymap",
             "**/*.sublime-macro",  # almost useless without other files
             "**/*.sublime-menu",

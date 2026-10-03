@@ -21,6 +21,7 @@ class CheckJsoncFiles(FileChecker):
             "**/*.hidden-color-scheme",
             "**/*.sublime-commands",
             "**/*.sublime-completions",
+            "**/*.sublime-file-icons",
             "**/*.sublime-keymap",
             "**/*.sublime-macro",
             "**/*.sublime-menu",
