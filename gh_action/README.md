@@ -28,8 +28,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
-  issues: write # needed for issue-comment acknowledgements
+  pull-requests: write # needed to react to "/review" comments on PRs
 
 jobs:
   diff-and-review:
@@ -74,7 +73,7 @@ This second workflow:
 - Posts a new PR comment with the contents of `review.md`.
 - Hides earlier review comments from the same account as outdated (disable with `hide-outdated: false`). Failures here only log a warning.
 
-For manually requested runs from `issue_comment`, the `review` phase also tries to add the configured `ack-reaction` to the triggering comment before doing expensive review work. The acknowledgement step uses `continue-on-error`, so token/permission failures are visible in the step log but do not block the review.
+For manually requested runs from `issue_comment`, the `review` phase also tries to add the configured `ack-reaction` to the triggering comment before doing expensive review work. This needs `pull-requests: write`. The acknowledgement step uses `continue-on-error`, so token/permission failures are visible in the step log but do not block the review.
 
 For package/plugin repositories (no channel/registry diff), use the dedicated action:
 [../gh_action_package/README.md](../gh_action_package/README.md)
