@@ -28,7 +28,8 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write # needed to react to "/review" comments on PRs
+  pull-requests: write # needed to acknowledge an issue_comment when ack-reaction is enabled (the default)
+                       # otherwise, read is enough
 
 jobs:
   diff-and-review:
@@ -42,6 +43,34 @@ jobs:
           # thecrawl: ../thecrawl                      # optional path
           # thecrawl: https://github.com/packagecontrol/thecrawl@my-branch   # optional URL with ref
 ```
+
+The reviewer can also run in response to a comment on a PR.
+E.g. if you want it to react to `/review`:
+
+```yaml
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  review-after-comment:
+    if: >-
+      ${{
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        contains(github.event.comment.body, '/review')
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diff and review changed/added packages
+        uses: kaste/st_package_reviewer/gh_action@<PINNED_REF>
+        with:
+          pr: ${{ github.event.issue.pull_request.html_url }}
+```
+
+For these runs, the `review` phase tries to add the configured `ack-reaction`
+to the triggering comment. This needs `pull-requests: write`; set `ack-reaction: ''` to disable it.
+However, a missing permission will also just continue with the review.
 
 If you also want the review output posted as PR comments, create a second workflow like this:
 
@@ -72,8 +101,6 @@ This second workflow:
 - Downloads the `review-md` artifact produced by the first workflow (containing `review.md` and `review_pr_number.txt`).
 - Posts a new PR comment with the contents of `review.md`.
 - Hides earlier review comments from the same account as outdated (disable with `hide-outdated: false`). Failures here only log a warning.
-
-For manually requested runs from `issue_comment`, the `review` phase also tries to add the configured `ack-reaction` to the triggering comment before doing expensive review work. This needs `pull-requests: write`. The acknowledgement step uses `continue-on-error`, so token/permission failures are visible in the step log but do not block the review.
 
 For package/plugin repositories (no channel/registry diff), use the dedicated action:
 [../gh_action_package/README.md](../gh_action_package/README.md)
