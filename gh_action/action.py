@@ -52,6 +52,13 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         default="https://github.com/packagecontrol/thecrawl",
         help="Path to local thecrawl repo or URL (supports @ref for https URLs)",
     )
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=os.environ.get("INPUT_EXCLUDE", "").split(),
+        metavar="CLASS_NAME",
+        help="Skip a checker class by name. Repeat to exclude multiple classes.",
+    )
     ns = parser.parse_args(argv)
     ns.file = ns.file[2:] if ns.file.startswith("./") else ns.file
     return ns
@@ -358,6 +365,7 @@ def main(argv: list[str] | None = None) -> None:
                         "--platforms",
                         format_platforms(supported_platforms),
                         *review_repo_args,
+                        *(arg for name in args.exclude for arg in ("--exclude", name)),
                         str(topdir),
                         cwd=root_dir,
                         stdout=out_file,

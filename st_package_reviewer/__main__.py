@@ -88,6 +88,8 @@ def main(args=None):
                              "Use 'all' for all platforms. Default: all.")
     parser.add_argument("-w", "--fail-on-warnings", action='store_true',
                         help="Return a non-zero exit code for warnings as well.")
+    parser.add_argument("--exclude", action="append", default=[], metavar="CLASS_NAME",
+                        help="Skip a checker class by name. Repeat to exclude multiple classes.")
     parser.add_argument("--compact", action='store_true',
                         help="Reduce output verbosity.")
     parser.add_argument("-v", "--verbose", action='store_true',
@@ -141,7 +143,7 @@ def main(args=None):
                 print("{!r} does not point to a (public) repository".format(url), file=out)
                 return 4
 
-            if not _run_checks(repo_c.get_checkers(), out, args=[repo],
+            if not _run_checks(repo_c.get_checkers(exclude=tuple(args.exclude)), out, args=[repo],
                                fail_on_warnings=args.fail_on_warnings,
                                compact=args.compact):
                 exit_code |= 2
@@ -180,7 +182,7 @@ def main(args=None):
         file_check_kwargs['st_build'] = args.st_build
         file_check_kwargs['platforms'] = args.platforms
 
-        if not _run_checks(file_c.get_checkers(), out, args=[path],
+        if not _run_checks(file_c.get_checkers(exclude=tuple(args.exclude)), out, args=[path],
                            kwargs=file_check_kwargs,
                            fail_on_warnings=args.fail_on_warnings,
                            compact=args.compact):

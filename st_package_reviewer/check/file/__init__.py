@@ -66,10 +66,11 @@ class FileChecker(Checker):
         return self.context("File: {}".format(path))
 
 
-get_checkers = functools.partial(
-    find_all,
-    Path(__file__).parent,
-    __package__,
-    base_class=FileChecker,
-    exclude='AstChecker',
-)
+def get_checkers(exclude=()):
+    """Collect file and AST checkers, excluding the named classes."""
+    return find_all(
+        Path(__file__).parent,
+        __package__,
+        base_class=FileChecker,
+        exclude=("AstChecker", *exclude),
+    )

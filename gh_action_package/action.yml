@@ -15,6 +15,9 @@ inputs:
   st-build:
     description: Optional minimum required Sublime Text build passed to --st-build.
     required: false
+  exclude:
+    description: Whitespace-separated checker class names to skip.
+    required: false
   fail-on-warnings:
     description: "If 'true', return a non-zero exit code for warnings as well."
     default: "false"
@@ -65,6 +68,7 @@ runs:
         INPUT_REPO: ${{ inputs.repo }}
         INPUT_PACKAGE_NAME: ${{ steps.resolve-package-name.outputs.package_name }}
         INPUT_ST_BUILD: ${{ inputs.st-build }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
         INPUT_FAIL_ON_WARNINGS: ${{ inputs.fail-on-warnings }}
         INPUT_COMPACT: ${{ inputs.compact }}
         # GitHub provides composite action sources without .git metadata,
@@ -83,6 +87,12 @@ runs:
         if [[ -n "$INPUT_ST_BUILD" ]]; then
           args+=(--st-build "$INPUT_ST_BUILD")
         fi
+
+        while IFS=$' \t\r' read -r -a excluded_classes; do
+          for checker in "${excluded_classes[@]}"; do
+            args+=(--exclude "$checker")
+          done
+        done <<< "$INPUT_EXCLUDE"
 
         if [[ "${INPUT_FAIL_ON_WARNINGS,,}" == "true" ]]; then
           args+=(--fail-on-warnings)

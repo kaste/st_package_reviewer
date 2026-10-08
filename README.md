@@ -82,7 +82,7 @@ $ pip install git+https://github.com/kaste/st_package_reviewer.git@<TAG_OR_SHA>
 usage: st_package_reviewer [-h] [--version] [--clip] [--repo-only]
                            [--package-name PACKAGE_NAME] [--repo [REPO]]
                            [--tag-prefix TAG_PREFIXES] [--st-build ST_BUILD]
-                           [--platforms PLATFORMS]
+                           [--platforms PLATFORMS] [--exclude CLASS_NAME]
                            [-w] [--compact] [-v] [--debug]
                            [path_or_URL [path_or_URL ...]]
 
@@ -112,6 +112,7 @@ optional arguments:
                         platforms. Default: all.
   -w, --fail-on-warnings
                         Return a non-zero exit code for warnings as well.
+  --exclude CLASS_NAME  Skip a checker class by name. Repeat to exclude multiple classes.
   --compact             Reduce output verbosity.
   -v, --verbose         Increase verbosity.
   --debug               Enter pdb on exceptions. Implies --verbose.
@@ -129,6 +130,18 @@ Interactive mode:
     Enter package paths or repository URLS continuously.
     Type `c` to copy the last report to your clipboard.
 ```
+
+
+Skip whole checker classes by their exact, case-sensitive names (see
+[rules.md](rules.md)), for example:
+
+```bash
+st_package_reviewer --exclude CheckSettingsMenuEntry --exclude CheckLicense --package-name LSP-oxfmt .
+```
+
+Exclusions apply to file, AST, and repository checks. Unknown names are ignored.
+Both GitHub Actions accept an optional `exclude` input with whitespace-separated
+class names (spaces or newlines).
 
 
 ## Development (uv, Python 3.13)

@@ -12,6 +12,7 @@ It is separate from `gh_action/` (which is designed for channel/registry PR diff
 - `package-name` (optional): Explicit package name.
   - If omitted, this action guesses it from `GITHUB_REPOSITORY` (repo name part).
 - `st-build` (optional): Passed to `--st-build`.
+- `exclude` (optional): Whitespace-separated, case-sensitive checker class names to skip (file, AST, or repository checks). Unknown names are ignored.
 - `fail-on-warnings` (optional): `"true"` to fail on warnings too. Default: `"false"`.
 - `compact` (optional): `"true"` to pass `--compact`. Default: `"false"`.
 
@@ -40,6 +41,9 @@ jobs:
           # path: .
           # package-name: My Package   # optional override when repo-name guess is not desired
           # st-build: 4180             # optional
+          # exclude: |               # optional; spaces or newlines
+          #   CheckSettingsMenuEntry
+          #   CheckLicense
           # fail-on-warnings: "true"  # optional
 ```
 

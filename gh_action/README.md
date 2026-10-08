@@ -8,6 +8,7 @@ This composite action diffs a Package Control channel registry between a PR’s 
 - `pr` (required for `review`): Full PR URL, e.g. `https://github.com/wbond/package_control_channel/pull/9236`.
 - `file` (optional): Path to the channel or repository file inside the repo. Default: `repository.json`.
 - `thecrawl` (optional): Path to a local `thecrawl` repo, or a git URL to clone a fork/branch/commit. Default: `https://github.com/packagecontrol/thecrawl`
+- `exclude` (optional): Whitespace-separated, case-sensitive checker class names to skip for all reviewed packages. Unknown names are ignored. Applies only during `phase=review`.
 - `token` (optional): GitHub token; if not set, the workflow token is used which is usually what you want.
 - `ack-reaction` (optional): Reaction to add immediately to a triggering `issue_comment` during `phase=review`. Default: `eyes`; set to an empty string to disable. Valid GitHub reactions include `+1`, `eyes`, `rocket`, and `hooray`.
 - `hide-outdated` (optional): During `phase=report`, hide earlier review comments on the PR as outdated after the new comment is posted. Default: `true`; set to `false` to disable.
@@ -39,8 +40,9 @@ jobs:
         uses: kaste/st_package_reviewer/gh_action@<PINNED_REF>
         with:
           pr: ${{ github.event.pull_request.html_url }}
+          # exclude: CheckSettingsMenuEntry CheckLicense  # optional; spaces or newlines
           # file: repository.json
-          # thecrawl: ../thecrawl                      # optional path
+          # thecrawl: ../thecrawl                         # optional path
           # thecrawl: https://github.com/packagecontrol/thecrawl@my-branch   # optional URL with ref
 ```
 
@@ -113,6 +115,9 @@ Run the Python implementation with `uv`:
 ```bash
 uv run python -u gh_action/action.py --pr https://github.com/sublimehq/package_control_channel/pull/9269
 ```
+
+Add `--exclude CheckSettingsMenuEntry` to skip a checker class; repeat
+`--exclude` for multiple classes.
 
 Note: use `-u` (or `PYTHONUNBUFFERED=1`) for stable, immediate log flushing.
 
