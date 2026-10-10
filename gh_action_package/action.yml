@@ -15,6 +15,9 @@ inputs:
   st-build:
     description: Optional minimum required Sublime Text build passed to --st-build.
     required: false
+  add-file-checkers:
+    description: Newline-separated paths to trusted checker directories (check them out first).
+    required: false
   exclude:
     description: Whitespace-separated checker class names to skip.
     required: false
@@ -69,6 +72,7 @@ runs:
         INPUT_PACKAGE_NAME: ${{ steps.resolve-package-name.outputs.package_name }}
         INPUT_ST_BUILD: ${{ inputs.st-build }}
         INPUT_EXCLUDE: ${{ inputs.exclude }}
+        INPUT_ADD_FILE_CHECKERS: ${{ inputs.add-file-checkers }}
         INPUT_FAIL_ON_WARNINGS: ${{ inputs.fail-on-warnings }}
         INPUT_COMPACT: ${{ inputs.compact }}
         # GitHub provides composite action sources without .git metadata,
@@ -93,6 +97,13 @@ runs:
             args+=(--exclude "$checker")
           done
         done <<< "$INPUT_EXCLUDE"
+
+        while IFS= read -r checker_path; do
+          checker_path="${checker_path%$'\r'}"
+          if [[ -n "$checker_path" ]]; then
+            args+=(--add-file-checkers "$checker_path")
+          fi
+        done <<< "$INPUT_ADD_FILE_CHECKERS"
 
         if [[ "${INPUT_FAIL_ON_WARNINGS,,}" == "true" ]]; then
           args+=(--fail-on-warnings)

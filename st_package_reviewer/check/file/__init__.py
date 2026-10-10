@@ -4,6 +4,7 @@ from pathlib import Path
 
 from ...platforms import normalize_platforms
 from .. import Checker, find_all
+from ..addons import find_additional
 
 __all__ = ('FileChecker', 'get_checkers')
 
@@ -66,11 +67,15 @@ class FileChecker(Checker):
         return self.context("File: {}".format(path))
 
 
-def get_checkers(exclude=()):
-    """Collect file and AST checkers, excluding the named classes."""
-    return find_all(
+def get_checkers(exclude=(), additional_paths=()):
+    """Collect built-in and additional file/AST checkers, excluding named classes."""
+    exclude = ("AstChecker", *exclude)
+    checkers = list(find_all(
         Path(__file__).parent,
         __package__,
         base_class=FileChecker,
-        exclude=("AstChecker", *exclude),
-    )
+        exclude=exclude,
+    ))
+    for path in additional_paths:
+        checkers.extend(find_additional(path, base_class=FileChecker, exclude=exclude))
+    return tuple(dict.fromkeys(checkers))

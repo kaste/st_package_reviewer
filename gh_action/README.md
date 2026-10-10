@@ -8,6 +8,7 @@ This composite action diffs a Package Control channel registry between a PR’s 
 - `pr` (required for `review`): Full PR URL, e.g. `https://github.com/wbond/package_control_channel/pull/9236`.
 - `file` (optional): Path to the channel or repository file inside the repo. Default: `repository.json`.
 - `thecrawl` (optional): Path to a local `thecrawl` repo, or a git URL to clone a fork/branch/commit. Default: `https://github.com/packagecontrol/thecrawl`
+- `add-file-checkers` (optional): Newline-separated paths to trusted additional checker directories. Check out the addon first; paths are relative to the caller's working directory. See [addon development](../docs/addons.md).
 - `exclude` (optional): Whitespace-separated, case-sensitive checker class names to skip for all reviewed packages. Unknown names are ignored. Applies only during `phase=review`.
 - `token` (optional): GitHub token; if not set, the workflow token is used which is usually what you want.
 - `ack-reaction` (optional): Reaction to add immediately to a triggering `issue_comment` during `phase=review`. Default: `eyes`; set to an empty string to disable. Valid GitHub reactions include `+1`, `eyes`, `rocket`, and `hooray`.
@@ -115,6 +116,10 @@ Run the Python implementation with `uv`:
 ```bash
 uv run python -u gh_action/action.py --pr https://github.com/sublimehq/package_control_channel/pull/9269
 ```
+
+Add `--add-file-checkers /path/to/addon/checkers` to load additional file/AST
+checkers; repeat for multiple directories. Addons are trusted Python code, not
+sandboxed. Dependencies are not installed automatically.
 
 Add `--exclude CheckSettingsMenuEntry` to skip a checker class; repeat
 `--exclude` for multiple classes.

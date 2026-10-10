@@ -16,6 +16,9 @@ inputs:
     description: "Optional path to a local thecrawl repo, or a URL to clone (supports @ref to pin)"
     default: https://github.com/packagecontrol/thecrawl
     required: false
+  add-file-checkers:
+    description: Newline-separated paths to trusted checker directories (check them out first).
+    required: false
   exclude:
     description: Whitespace-separated checker class names to skip during package reviews.
     required: false
@@ -90,6 +93,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         INPUT_EXCLUDE: ${{ inputs.exclude }}
+        INPUT_ADD_FILE_CHECKERS: ${{ inputs.add-file-checkers }}
         # GitHub downloads composite actions without the .git directory.  Provide
         # a fallback version before `uv run` builds the project via hatch-vcs.
         SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ST_PACKAGE_REVIEWER: "0.0.0"

@@ -90,6 +90,9 @@ def main(args=None):
                         help="Return a non-zero exit code for warnings as well.")
     parser.add_argument("--exclude", action="append", default=[], metavar="CLASS_NAME",
                         help="Skip a checker class by name. Repeat to exclude multiple classes.")
+    parser.add_argument("--add-file-checkers", action="append", type=Path, default=[],
+                        metavar="PATH", help="Load additional file/AST checkers from a trusted "
+                        "directory. Repeat for multiple directories.")
     parser.add_argument("--compact", action='store_true',
                         help="Reduce output verbosity.")
     parser.add_argument("-v", "--verbose", action='store_true',
@@ -112,6 +115,15 @@ def main(args=None):
     nargs = _prepare_nargs(args.nargs)
     if nargs is None:
         return -1
+
+    try:
+        file_checkers = file_c.get_checkers(
+            exclude=tuple(args.exclude), additional_paths=args.add_file_checkers,
+        )
+    except (ValueError, ImportError) as exc:
+        if args.debug:
+            raise
+        parser.error(str(exc))
 
     # start doing work
     gh = GitHub()
@@ -182,7 +194,7 @@ def main(args=None):
         file_check_kwargs['st_build'] = args.st_build
         file_check_kwargs['platforms'] = args.platforms
 
-        if not _run_checks(file_c.get_checkers(exclude=tuple(args.exclude)), out, args=[path],
+        if not _run_checks(file_checkers, out, args=[path],
                            kwargs=file_check_kwargs,
                            fail_on_warnings=args.fail_on_warnings,
                            compact=args.compact):

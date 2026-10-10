@@ -83,6 +83,7 @@ usage: st_package_reviewer [-h] [--version] [--clip] [--repo-only]
                            [--package-name PACKAGE_NAME] [--repo [REPO]]
                            [--tag-prefix TAG_PREFIXES] [--st-build ST_BUILD]
                            [--platforms PLATFORMS] [--exclude CLASS_NAME]
+                           [--add-file-checkers PATH]
                            [-w] [--compact] [-v] [--debug]
                            [path_or_URL [path_or_URL ...]]
 
@@ -113,6 +114,9 @@ optional arguments:
   -w, --fail-on-warnings
                         Return a non-zero exit code for warnings as well.
   --exclude CLASS_NAME  Skip a checker class by name. Repeat to exclude multiple classes.
+  --add-file-checkers PATH
+                        Load additional file/AST checkers from a trusted directory.
+                        Repeat for multiple directories.
   --compact             Reduce output verbosity.
   -v, --verbose         Increase verbosity.
   --debug               Enter pdb on exceptions. Implies --verbose.
@@ -142,6 +146,16 @@ st_package_reviewer --exclude CheckSettingsMenuEntry --exclude CheckLicense --pa
 Exclusions apply to file, AST, and repository checks. Unknown names are ignored.
 Both GitHub Actions accept an optional `exclude` input with whitespace-separated
 class names (spaces or newlines).
+
+
+## Additional checker repositories
+
+Use `--add-file-checkers /path/to/addon/checkers` to add your own file or AST
+checkers alongside the built-ins. Repeat for multiple directories and use
+`--exclude` to disable a stock rule or an addon class.
+
+For the directory layout, minimal API, TDD workflow, dependency setup, and
+GitHub Action integration, see [Developing additional checkers](docs/addons.md).
 
 
 ## Development (uv, Python 3.13)

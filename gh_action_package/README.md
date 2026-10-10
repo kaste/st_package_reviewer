@@ -12,6 +12,7 @@ It is separate from `gh_action/` (which is designed for channel/registry PR diff
 - `package-name` (optional): Explicit package name.
   - If omitted, this action guesses it from `GITHUB_REPOSITORY` (repo name part).
 - `st-build` (optional): Passed to `--st-build`.
+- `add-file-checkers` (optional): Newline-separated paths to trusted additional checker directories. Check out the addon first; paths are relative to the caller's working directory. See [addon development](../docs/addons.md).
 - `exclude` (optional): Whitespace-separated, case-sensitive checker class names to skip (file, AST, or repository checks). Unknown names are ignored.
 - `fail-on-warnings` (optional): `"true"` to fail on warnings too. Default: `"false"`.
 - `compact` (optional): `"true"` to pass `--compact`. Default: `"false"`.

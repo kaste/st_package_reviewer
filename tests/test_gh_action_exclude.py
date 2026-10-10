@@ -32,6 +32,19 @@ def test_channel_action_reads_exclude_input(monkeypatch, value, expected):
 def test_channel_action_forwards_exclusions_to_reviewer(tmp_path, monkeypatch, tags_mode):
     monkeypatch.setenv("GITHUB_WORKSPACE", str(tmp_path))
     monkeypatch.setenv("INPUT_EXCLUDE", "CheckSettingsMenuEntry\nCheckLicense\nCheckRepoTags")
+    monkeypatch.chdir(tmp_path)
+    addon = tmp_path / "custom checks"
+    addon.mkdir()
+    (addon / "check_custom.py").write_text(
+        "from st_package_reviewer.check.file import FileChecker\n"
+        "class ChannelAddon(FileChecker):\n"
+        "    def check(self):\n"
+        "        self.notice('Additional checker ran.')\n"
+        "class ChannelAddonExcluded(FileChecker):\n"
+        "    def check(self):\n"
+        "        self.fail('Excluded addon ran!')\n", encoding="utf-8",
+    )
+    monkeypatch.setenv("INPUT_ADD_FILE_CHECKERS", addon.name)
     repo_url = "https://github.com/example/package"
     packages = ["Example", "Other"]
     for package in packages:
@@ -67,6 +80,7 @@ def test_channel_action_forwards_exclusions_to_reviewer(tmp_path, monkeypatch, t
     calls = []
 
     def run(*args, **kwargs):
+        assert kwargs["cwd"] == Path(action.__file__).resolve().parent.parent
         calls.append(args)
         with redirect_stdout(kwargs["stdout"]):
             returncode = cli.main(list(args[args.index("st_package_reviewer") + 1:]))
@@ -77,18 +91,26 @@ def test_channel_action_forwards_exclusions_to_reviewer(tmp_path, monkeypatch, t
     with pytest.raises(SystemExit) as exc:
         action.main([
             "--pr", "https://github.com/example/channel/pull/1",
-            "--exclude", "CheckOsSystemCalls",
+            "--exclude", "CheckOsSystemCalls", "--exclude", "ChannelAddonExcluded",
+            "--add-file-checkers", str(addon),
         ])
 
     assert exc.value.code == 0
     assert len(calls) == len(packages)
+    action.run_sh.assert_called_once_with(
+        "uv sync --no-dev", cwd=Path(action.__file__).resolve().parent.parent,
+    )
     repo_check.assert_not_called()
     for command in calls:
+        assert command[:4] == ("uv", "run", "--no-sync", "st_package_reviewer")
         assert command[command.index("--exclude"):-1] == (
             "--exclude", "CheckSettingsMenuEntry",
             "--exclude", "CheckLicense",
             "--exclude", "CheckRepoTags",
             "--exclude", "CheckOsSystemCalls",
+            "--exclude", "ChannelAddonExcluded",
+            "--add-file-checkers", str(addon),
+            "--add-file-checkers", str(addon),
         )
         if tags_mode:
             assert command[command.index("--repo"):command.index("--exclude")] == (
@@ -98,6 +120,8 @@ def test_channel_action_forwards_exclusions_to_reviewer(tmp_path, monkeypatch, t
     assert "missing 'Main.sublime-menu'" not in review
     assert "top-level LICENSE file" not in review
     assert "Consider replacing os.system" not in review
+    assert review.count("Additional checker ran.") == len(packages)
+    assert "Excluded addon ran!" not in review
 
 
 def test_channel_action_binds_exclude_input():
@@ -106,10 +130,17 @@ def test_channel_action_binds_exclude_input():
     assert "  exclude:\n" in source.split("runs:", 1)[0]
     step = source.split("    - name: Run Package Reviewer\n", 1)[1].split("    - name:", 1)[0]
     assert "INPUT_EXCLUDE: ${{ inputs.exclude }}" in step
+    assert "INPUT_ADD_FILE_CHECKERS: ${{ inputs.add-file-checkers }}" in step
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required")
 @pytest.mark.parametrize("other_options", [False, True])
+@pytest.mark.parametrize("addon_input, addon_args", [
+    ("", []),
+    ("custom checks\r\nother/checks\n", [
+        "--add-file-checkers", "custom checks", "--add-file-checkers", "other/checks",
+    ]),
+])
 @pytest.mark.parametrize("value, expected", [
     ("", []),
     ("CheckSettingsMenuEntry", ["--exclude", "CheckSettingsMenuEntry"]),
@@ -123,7 +154,8 @@ def test_channel_action_binds_exclude_input():
         "--exclude", "CheckOsSystemCalls",
     ]),
 ])
-def test_package_action_forwards_exclude_input(value, expected, other_options):
+def test_package_action_forwards_exclude_input(value, expected, other_options,
+                                               addon_input, addon_args):
     action_path = Path(__file__).resolve().parents[1] / "gh_action_package" / "action.yml"
     source = action_path.read_text(encoding="utf-8")
     step = source.split("    - name: Run st_package_reviewer\n", 1)[1]
@@ -144,9 +176,11 @@ def test_package_action_forwards_exclude_input(value, expected, other_options):
         "INPUT_PACKAGE_NAME": "",
         "INPUT_ST_BUILD": "",
         "INPUT_EXCLUDE": value,
+        "INPUT_ADD_FILE_CHECKERS": addon_input,
         "INPUT_FAIL_ON_WARNINGS": "false",
         "INPUT_COMPACT": "false",
     }
+    expected = [*expected, *addon_args]
     if other_options:
         inputs.update({
             "INPUT_PACKAGE_NAME": "My Package",

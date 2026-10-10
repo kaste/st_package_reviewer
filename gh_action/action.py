@@ -59,7 +59,16 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         metavar="CLASS_NAME",
         help="Skip a checker class by name. Repeat to exclude multiple classes.",
     )
+    parser.add_argument(
+        "--add-file-checkers", action="append", default=[], metavar="PATH",
+        help="Load additional file/AST checkers from a trusted directory. "
+             "Repeat for multiple paths.",
+    )
     ns = parser.parse_args(argv)
+    paths = os.environ.get("INPUT_ADD_FILE_CHECKERS", "").splitlines() + ns.add_file_checkers
+    # The reviewer later runs with cwd=root_dir; resolve caller-relative paths now.
+    ns.add_file_checkers = [Path(path.strip()).expanduser().resolve()
+                            for path in paths if path.strip()]
     ns.file = ns.file[2:] if ns.file.startswith("./") else ns.file
     return ns
 
@@ -366,6 +375,8 @@ def main(argv: list[str] | None = None) -> None:
                         format_platforms(supported_platforms),
                         *review_repo_args,
                         *(arg for name in args.exclude for arg in ("--exclude", name)),
+                        *(arg for path in args.add_file_checkers
+                          for arg in ("--add-file-checkers", str(path))),
                         str(topdir),
                         cwd=root_dir,
                         stdout=out_file,
